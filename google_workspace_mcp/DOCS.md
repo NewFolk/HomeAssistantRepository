@@ -30,6 +30,7 @@ Optional:
 - `oauth_redirect_uri`: force a specific callback URL
 - `external_url`: public/LAN URL used in server metadata
 - `user_google_email`: default email for single-user auth
+- `client_compat_scopes`: client-facing MCP scopes accepted locally (default: `mcp:tools`)
 - `allow_insecure_transport: true`: dev only for non-HTTPS redirect testing
 
 ### 3) Start the add-on
@@ -71,8 +72,13 @@ If your MCP client fails auth with:
 
 - `Requested scopes are not valid: mcp:tools`
 
-use add-on version `0.1.5+`.
-This release includes a compatibility patch for clients (including `mcporter`) that request MCP standard scope `mcp:tools` during OAuth negotiation.
+use add-on version `0.2.0+`.
+This release introduces scope-plane separation:
+
+- client-plane accepts MCP scopes such as `mcp:tools`
+- upstream Google authorize request receives only Google/OIDC scopes
+
+So `mcp:tools` is no longer forwarded to Google.
 
 ### 7) Security baseline
 
@@ -85,3 +91,11 @@ This release includes a compatibility patch for clients (including `mcporter`) t
 
 - For each release: increase `version` in `config.yaml` and add an entry to `CHANGELOG.md`.
 - To rollback, checkout the previous git tag/commit and reinstall or rebuild the add-on from that revision.
+
+### 9) E2E verification checklist
+
+- Run `mcporter auth <your-server-url>` and complete browser consent.
+- Confirm there is no 401 auth loop on `/mcp`.
+- Run `mcporter list --schema` and verify tools are listed.
+- Execute read-only smoke tests for Gmail, Calendar, Drive.
+- Restart add-on and repeat `mcporter list --schema` to verify stable session behavior.

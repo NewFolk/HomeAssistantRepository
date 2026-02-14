@@ -14,6 +14,7 @@ Home Assistant add-on that runs [`workspace-mcp`](https://github.com/taylorwilsd
 - OAuth 2.1 (`enable_oauth21=true`) **cannot** be combined with `single_user_mode=true`
 - Use your own Google OAuth app credentials only
 - This add-on is designed to run fully inside HAOS without a separate MCP host
+- OAuth scope-plane interop is enabled: client scopes like `mcp:tools` are accepted locally, while Google receives only Google/OIDC scopes
 
 ## Upstream project
 

@@ -20,6 +20,9 @@ configuration:
   tools:
     name: Enabled Services
     description: Space-separated services (e.g. gmail calendar drive)
+  client_compat_scopes:
+    name: Client Compat Scopes
+    description: Client-facing MCP scopes accepted locally (default mcp:tools)
   enable_oauth21:
     name: Enable OAuth 2.1
     description: Recommended for modern MCP clients

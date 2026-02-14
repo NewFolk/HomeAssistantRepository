@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0
+
+- Implemented OAuth2.1 scope-plane separation for MCP/Google interop.
+- Added runtime patch (`patches/sitecustomize.py`) to:
+  - accept client-side MCP scopes (default: `mcp:tools`) in local scope validation
+  - filter non-Google scopes before upstream Google authorize request
+- Added add-on option `client_compat_scopes` (default `mcp:tools`).
+- Removed previous build-time patch that inserted `mcp:tools` into Google `BASE_SCOPES`.
+- Added technical note: `TECHNICAL_NOTE_SCOPE_INTEROP.md`.
+
 ## 0.1.5
 
 - Added compatibility patch for OAuth scope negotiation with clients like `mcporter` that request `mcp:tools`.

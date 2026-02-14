@@ -24,6 +24,7 @@ USER_GOOGLE_EMAIL="$(cfg_str '.user_google_email')"
 TOOL_TIER="$(cfg_str '.tool_tier')"
 TOOLS_RAW="$(cfg_str '.tools')"
 TRANSPORT="$(cfg_str '.transport')"
+CLIENT_COMPAT_SCOPES="$(cfg_str '.client_compat_scopes')"
 ENABLE_OAUTH21="$(cfg_bool '.enable_oauth21')"
 STATELESS_MODE="$(cfg_bool '.stateless_mode')"
 SINGLE_USER_MODE="$(cfg_bool '.single_user_mode')"
@@ -36,6 +37,10 @@ fi
 
 if [[ -z "$TRANSPORT" ]]; then
   TRANSPORT="streamable-http"
+fi
+
+if [[ -z "$CLIENT_COMPAT_SCOPES" ]]; then
+  CLIENT_COMPAT_SCOPES="mcp:tools"
 fi
 
 if [[ -z "$OAUTH_CLIENT_ID" || -z "$OAUTH_CLIENT_SECRET" ]]; then
@@ -59,6 +64,7 @@ export WORKSPACE_MCP_HOST="0.0.0.0"
 export WORKSPACE_MCP_PORT="8000"
 export MCP_ENABLE_OAUTH21="$ENABLE_OAUTH21"
 export WORKSPACE_MCP_STATELESS_MODE="$STATELESS_MODE"
+export MCP_CLIENT_COMPAT_SCOPES="$CLIENT_COMPAT_SCOPES"
 
 if [[ -n "$OAUTH_REDIRECT_URI" ]]; then
   export GOOGLE_OAUTH_REDIRECT_URI="$OAUTH_REDIRECT_URI"
@@ -95,5 +101,6 @@ fi
 echo "[INFO] Starting Google Workspace MCP"
 echo "[INFO] Transport: $TRANSPORT"
 echo "[INFO] Tool tier: $TOOL_TIER"
+echo "[INFO] Client compat scopes: $MCP_CLIENT_COMPAT_SCOPES"
 
 exec "${cmd[@]}"

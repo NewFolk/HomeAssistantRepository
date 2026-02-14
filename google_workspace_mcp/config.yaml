@@ -1,5 +1,5 @@
 name: Google Workspace MCP
-version: "0.1.5"
+version: "0.2.0"
 slug: google_workspace_mcp
 description: Google Workspace MCP server for Gmail, Calendar, Drive, Docs, Sheets, and more.
 url: https://github.com/NewFolk/HomeAssistantRepository/tree/main/google_workspace_mcp
@@ -26,6 +26,7 @@ options:
   user_google_email: ""
   tool_tier: core
   tools: "gmail calendar drive docs sheets"
+  client_compat_scopes: "mcp:tools"
   enable_oauth21: true
   stateless_mode: false
   single_user_mode: false
@@ -40,6 +41,7 @@ schema:
   user_google_email: "str?"
   tool_tier: list(core|extended|complete)
   tools: "str?"
+  client_compat_scopes: "str?"
   enable_oauth21: bool
   stateless_mode: bool
   single_user_mode: bool
