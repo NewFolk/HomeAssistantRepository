@@ -158,6 +158,15 @@ npx -y mcporter list google-workspace --schema --json
 
 ---
 
+## Persistence (auth should survive restarts)
+
+This add-on defaults OAuth proxy storage to disk under `/data`:
+
+- `/data/oauth-proxy`
+- `/data/fastmcp`
+
+If you still get re-auth prompts after restarts, check add-on logs for storage warnings.
+
 ## Known errors and fixes
 
 ### `Requested scopes are not valid: mcp:tools`

@@ -56,6 +56,11 @@ fi
 mkdir -p /data/credentials
 chmod 700 /data/credentials || true
 
+# Persist OAuth proxy / FastMCP runtime state on HA's /data volume so
+# authorizations survive add-on restarts/updates.
+mkdir -p /data/oauth-proxy /data/fastmcp
+chmod 700 /data/oauth-proxy /data/fastmcp || true
+
 export GOOGLE_OAUTH_CLIENT_ID="$OAUTH_CLIENT_ID"
 export GOOGLE_OAUTH_CLIENT_SECRET="$OAUTH_CLIENT_SECRET"
 export WORKSPACE_MCP_CREDENTIALS_DIR="/data/credentials"
@@ -65,6 +70,12 @@ export WORKSPACE_MCP_PORT="8000"
 export MCP_ENABLE_OAUTH21="$ENABLE_OAUTH21"
 export WORKSPACE_MCP_STATELESS_MODE="$STATELESS_MODE"
 export MCP_CLIENT_COMPAT_SCOPES="$CLIENT_COMPAT_SCOPES"
+
+# Default to disk-backed OAuth proxy state to prevent re-auth on restarts.
+# (If dependencies are missing, workspace-mcp will log a warning and fall back.)
+export WORKSPACE_MCP_OAUTH_PROXY_STORAGE_BACKEND="disk"
+export WORKSPACE_MCP_OAUTH_PROXY_DISK_DIRECTORY="/data/oauth-proxy"
+export FASTMCP_HOME="/data/fastmcp"
 
 if [[ -n "$OAUTH_REDIRECT_URI" ]]; then
   export GOOGLE_OAUTH_REDIRECT_URI="$OAUTH_REDIRECT_URI"

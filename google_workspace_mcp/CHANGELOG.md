@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.4
+
+- Persist OAuth proxy state on disk (`/data/oauth-proxy`) by default so MCP client auth survives add-on restarts/updates.
+- Added `FASTMCP_HOME=/data/fastmcp` to keep FastMCP runtime state under HA persistent storage.
+- Added add-on store icon/logo.
+
 ## 0.2.3
 
 - Security hardening: switched add-on networking from `host_network: true` to `host_network: false`.

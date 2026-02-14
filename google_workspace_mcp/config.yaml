@@ -1,5 +1,5 @@
 name: Google Workspace MCP
-version: "0.2.3"
+version: "0.2.4"
 slug: google_workspace_mcp
 description: Google Workspace MCP server for Gmail, Calendar, Drive, Docs, Sheets, and more.
 url: https://github.com/NewFolk/HomeAssistantRepository/tree/main/google_workspace_mcp

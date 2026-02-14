@@ -82,19 +82,28 @@ This release introduces scope-plane separation:
 
 So `mcp:tools` is no longer forwarded to Google.
 
-### 7) Security baseline
+### 7) Persistence (auth survives restarts)
+
+This add-on stores OAuth proxy state under Home Assistant persistent storage:
+
+- `/data/oauth-proxy`
+- `/data/fastmcp`
+
+So MCP client authorizations should survive add-on restarts/updates.
+
+### 8) Security baseline
 
 - Never store or commit OAuth secrets in Git.
 - Start with minimum tools/APIs only (for example: `gmail calendar drive`).
 - Keep `read_only_mode: true` for initial smoke testing if you want read-only access first.
 - Keep `allow_insecure_transport: false` in production.
 
-### 8) Updates and rollback
+### 9) Updates and rollback
 
 - For each release: increase `version` in `config.yaml` and add an entry to `CHANGELOG.md`.
 - To rollback, checkout the previous git tag/commit and reinstall or rebuild the add-on from that revision.
 
-### 9) E2E verification checklist
+### 10) E2E verification checklist
 
 - Run `mcporter auth <your-server-url>` and complete browser consent.
 - Confirm there is no 401 auth loop on `/mcp`.
