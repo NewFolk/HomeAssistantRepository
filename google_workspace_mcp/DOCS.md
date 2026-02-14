@@ -72,7 +72,7 @@ If your MCP client fails auth with:
 
 - `Requested scopes are not valid: mcp:tools`
 
-use add-on version `0.2.1+`.
+use add-on version `0.2.2+`.
 This release introduces scope-plane separation:
 
 - client-plane accepts MCP scopes such as `mcp:tools`

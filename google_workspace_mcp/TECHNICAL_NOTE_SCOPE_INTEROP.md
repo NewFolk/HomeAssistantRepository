@@ -25,7 +25,7 @@ Google token verification remains Google-scope based.
 
 ---
 
-## Important post-mortem note (0.2.0 -> 0.2.1)
+## Important post-mortem notes (0.2.0 -> 0.2.1 -> 0.2.2)
 
 ### What was wrong in 0.2.0
 
@@ -38,14 +38,42 @@ In `workspace-mcp==1.11.1` these modules are not part of the actual OAuth2.1 val
 
 ### What was changed in 0.2.1
 
-Patch now targets the real FastMCP internals used by this runtime:
+`0.2.1` moved patching to FastMCP internals and added a post-mortem comment.
+It improved targeting compared to `0.2.0`, but still missed one active validation path.
 
-- `fastmcp.server.auth.providers.in_memory.InMemoryClientStore.register_client`
-  - extends local valid scope set with `MCP_CLIENT_COMPAT_SCOPES` (e.g. `mcp:tools`)
-- `fastmcp.server.auth.oauth_proxy.OAuthProxy._build_upstream_authorize_url`
-  - filters non-Google scopes before upstream redirect to Google
+### What was missing after 0.2.1
 
-This is the effective interception point for this version stack.
+In runtime traces and live endpoint tests, DCR still failed with:
+
+- `invalid_client_metadata`
+- `Requested scopes are not valid: mcp:tools`
+
+Reason: registration scope validation can happen in MCP handler layer:
+
+- `mcp.server.auth.handlers.register.RegistrationHandler.handle`
+
+That handler validates `client_metadata.scope` against `options.valid_scopes` before final registration.
+
+### What was changed in 0.2.2
+
+Patch now covers all required interception points for this stack:
+
+1) `fastmcp.server.auth.oauth_proxy.OAuthProxy.__init__`
+- expands `valid_scopes` with `MCP_CLIENT_COMPAT_SCOPES` so client registration scope set includes MCP compat scopes.
+
+2) `mcp.server.auth.handlers.register.RegistrationHandler.handle`
+- safety-net patch: ensures handler-level `options.valid_scopes` includes `MCP_CLIENT_COMPAT_SCOPES` at request time.
+
+3) `fastmcp.server.auth.oauth_proxy.OAuthProxy._build_upstream_authorize_url`
+- strips non-Google scopes before upstream redirect to Google.
+
+4) `fastmcp.server.auth.providers.in_memory.InMemoryClientStore.register_client`
+- kept as defense-in-depth for stores that still validate scopes directly.
+
+Net effect:
+- `mcp:tools` accepted on client plane,
+- `mcp:tools` not forwarded to Google authorize,
+- Google scope semantics preserved.
 
 ---
 

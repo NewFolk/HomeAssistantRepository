@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.2
+
+- Added handler-level compatibility patch for OAuth2.1 registration path:
+  - `mcp.server.auth.handlers.register.RegistrationHandler.handle`
+- Added init-time valid scope merge patch:
+  - `fastmcp.server.auth.oauth_proxy.OAuthProxy.__init__`
+- Kept upstream scope sanitization in place:
+  - `fastmcp.server.auth.oauth_proxy.OAuthProxy._build_upstream_authorize_url`
+- Updated technical note with full post-mortem and effective hook points for this stack.
+
 ## 0.2.1
 
 - Fixed scope-interop patch target for `workspace-mcp==1.11.1`:
