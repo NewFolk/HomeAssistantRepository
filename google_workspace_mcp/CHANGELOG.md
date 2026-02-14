@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.3
+
+- Fixed Home Assistant Supervisor validation: `watchdog` now uses full URL format `http://[HOST]:[PORT:8000]/health`.
+- Resolves add-on hiding caused by invalid `config.yaml` schema value.
+
 ## 0.1.2
 
 - Changed add-on visibility defaults: `advanced: false`, `stage: stable`.
