@@ -39,20 +39,22 @@ After saving options, start/restart the add-on.
 
 The server exposes:
 
-- Health endpoint: `http://<ha-host>:8000/health`
+- Health endpoint: `http://<ha-host>:<published-addon-port>/health`
+  - default published port is usually `8000`
+  - if you override host port in Add-on UI, use that value
 
 ### 4) Connect clients
 
 Use your MCP client to connect to the running endpoint on your HA host.
 
-- LAN/direct: `http://<ha-host>:8000/mcp`
+- LAN/direct: `http://<ha-host>:<published-addon-port>/mcp`
 - Reverse proxy (HTTPS): `https://<your-domain>/mcp`
 
 > If OAuth callback URLs fail, set `oauth_redirect_uri` explicitly to the exact callback URL expected by your Google OAuth app.
 
 ### 5) Reverse proxy quick checks
 
-If you use `external_url` with HTTPS domain, make sure the proxy forwards these paths to backend `http://<ha-host>:8000`:
+If you use `external_url` with HTTPS domain, make sure the proxy forwards these paths to backend `http://<ha-host>:<published-addon-port>` (default usually `8000`):
 
 - `/mcp`
 - `/.well-known/*`

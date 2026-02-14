@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.3
+
+- Security hardening: switched add-on networking from `host_network: true` to `host_network: false`.
+- Restores standard Home Assistant port publishing behavior, so host-side port overrides from Add-on UI work reliably again.
+- Updated docs/runbook notes for reverse proxy upstream and port override checks.
+
 ## 0.2.2
 
 - Added handler-level compatibility patch for OAuth2.1 registration path:

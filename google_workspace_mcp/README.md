@@ -4,7 +4,7 @@ Home Assistant add-on that runs [`workspace-mcp`](https://github.com/taylorwilsd
 
 ## What this add-on provides
 
-- Google Workspace MCP endpoint on port `8000`
+- Google Workspace MCP endpoint (container listens on `8000`, host port is configurable in Add-on UI)
 - Persistent credentials storage in `/data/credentials`
 - OAuth 2.1 compatible HTTP endpoint for MCP clients (`/mcp`)
 - Scope-plane interop for MCP clients that request `mcp:tools`
@@ -72,7 +72,10 @@ After saving options: **restart add-on**.
 
 ### 4) Reverse proxy routing
 
-Forward these paths to backend `http://<ha-host>:8000`:
+Forward these paths to backend `http://<ha-host>:<published-addon-port>`.
+
+- Default published port is usually `8000`
+- If you changed the add-on host port in Home Assistant UI, use that value instead
 
 - `/mcp`
 - `/.well-known/*`
@@ -92,6 +95,10 @@ curl -fsS https://<your-mcp-domain>/.well-known/oauth-authorization-server
 Expected:
 - `/health` returns JSON with `"status":"healthy"`
 - OAuth metadata endpoint returns JSON (not 502)
+
+If reverse proxy returns 502, first confirm the add-on published host port in Home Assistant:
+- Settings → Add-ons → Google Workspace MCP → Network
+- Use that published host port as proxy upstream target.
 
 ### 6) Validate Dynamic Client Registration (scope interop)
 
