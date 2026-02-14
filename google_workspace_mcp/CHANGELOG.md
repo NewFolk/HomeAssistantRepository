@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.2
+
+- Changed add-on visibility defaults: `advanced: false`, `stage: stable`.
+- This makes `google_workspace_mcp` visible in Add-on Store without enabling advanced mode.
+
 ## 0.1.1
 
 - Fixed boolean option parsing in `run.sh` to reliably pass `true/false` values to runtime env.
