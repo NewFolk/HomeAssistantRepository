@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.1
+
+- Fixed scope-interop patch target for `workspace-mcp==1.11.1`:
+  - patch now hooks FastMCP internals directly:
+    - `fastmcp.server.auth.providers.in_memory.InMemoryClientStore.register_client`
+    - `fastmcp.server.auth.oauth_proxy.OAuthProxy._build_upstream_authorize_url`
+- Keeps `mcp:tools` valid on client registration plane while ensuring only Google/OIDC scopes are sent upstream to Google authorize endpoint.
+- Added post-mortem comments to `TECHNICAL_NOTE_SCOPE_INTEROP.md` about why `0.2.0` patch did not activate.
+
 ## 0.2.0
 
 - Implemented OAuth2.1 scope-plane separation for MCP/Google interop.
