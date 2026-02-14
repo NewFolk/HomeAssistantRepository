@@ -65,14 +65,23 @@ A quick check:
 - `https://<your-domain>/health` must return `200`
 - `https://<your-domain>/.well-known/oauth-authorization-server` must return JSON (not 502)
 
-### 5) Security baseline
+### 6) OAuth troubleshooting
+
+If your MCP client fails auth with:
+
+- `Requested scopes are not valid: mcp:tools`
+
+use add-on version `0.1.5+`.
+This release includes a compatibility patch for clients (including `mcporter`) that request MCP standard scope `mcp:tools` during OAuth negotiation.
+
+### 7) Security baseline
 
 - Never store or commit OAuth secrets in Git.
 - Start with minimum tools/APIs only (for example: `gmail calendar drive`).
 - Keep `read_only_mode: true` for initial smoke testing if you want read-only access first.
 - Keep `allow_insecure_transport: false` in production.
 
-### 6) Updates and rollback
+### 8) Updates and rollback
 
 - For each release: increase `version` in `config.yaml` and add an entry to `CHANGELOG.md`.
 - To rollback, checkout the previous git tag/commit and reinstall or rebuild the add-on from that revision.

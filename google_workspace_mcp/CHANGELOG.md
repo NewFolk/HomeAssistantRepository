@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.5
+
+- Added compatibility patch for OAuth scope negotiation with clients like `mcporter` that request `mcp:tools`.
+- During image build, the installed `workspace-mcp` scope list is patched to include `mcp:tools` in `BASE_SCOPES`.
+- Fixes auth failure: `Requested scopes are not valid: mcp:tools`.
+
 ## 0.1.4
 
 - Enabled `host_network: true` so the add-on can bind directly on the HAOS host network.
