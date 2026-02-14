@@ -8,23 +8,35 @@ if [[ ! -f "$CONFIG_PATH" ]]; then
   exit 1
 fi
 
-cfg() {
-  jq -r "$1 // empty" "$CONFIG_PATH"
+cfg_str() {
+  jq -r "$1 // \"\"" "$CONFIG_PATH"
 }
 
-OAUTH_CLIENT_ID="$(cfg '.oauth_client_id')"
-OAUTH_CLIENT_SECRET="$(cfg '.oauth_client_secret')"
-OAUTH_REDIRECT_URI="$(cfg '.oauth_redirect_uri')"
-EXTERNAL_URL="$(cfg '.external_url')"
-USER_GOOGLE_EMAIL="$(cfg '.user_google_email')"
-TOOL_TIER="$(cfg '.tool_tier')"
-TOOLS_RAW="$(cfg '.tools')"
-ENABLE_OAUTH21="$(cfg '.enable_oauth21')"
-STATELESS_MODE="$(cfg '.stateless_mode')"
-SINGLE_USER_MODE="$(cfg '.single_user_mode')"
-READ_ONLY_MODE="$(cfg '.read_only_mode')"
-ALLOW_INSECURE="$(cfg '.allow_insecure_transport')"
-TRANSPORT="$(cfg '.transport')"
+cfg_bool() {
+  jq -r "if $1 == true then \"true\" else \"false\" end" "$CONFIG_PATH"
+}
+
+OAUTH_CLIENT_ID="$(cfg_str '.oauth_client_id')"
+OAUTH_CLIENT_SECRET="$(cfg_str '.oauth_client_secret')"
+OAUTH_REDIRECT_URI="$(cfg_str '.oauth_redirect_uri')"
+EXTERNAL_URL="$(cfg_str '.external_url')"
+USER_GOOGLE_EMAIL="$(cfg_str '.user_google_email')"
+TOOL_TIER="$(cfg_str '.tool_tier')"
+TOOLS_RAW="$(cfg_str '.tools')"
+TRANSPORT="$(cfg_str '.transport')"
+ENABLE_OAUTH21="$(cfg_bool '.enable_oauth21')"
+STATELESS_MODE="$(cfg_bool '.stateless_mode')"
+SINGLE_USER_MODE="$(cfg_bool '.single_user_mode')"
+READ_ONLY_MODE="$(cfg_bool '.read_only_mode')"
+ALLOW_INSECURE="$(cfg_bool '.allow_insecure_transport')"
+
+if [[ -z "$TOOL_TIER" ]]; then
+  TOOL_TIER="core"
+fi
+
+if [[ -z "$TRANSPORT" ]]; then
+  TRANSPORT="streamable-http"
+fi
 
 if [[ -z "$OAUTH_CLIENT_ID" || -z "$OAUTH_CLIENT_SECRET" ]]; then
   echo "[ERROR] oauth_client_id and oauth_client_secret must be set in add-on options"

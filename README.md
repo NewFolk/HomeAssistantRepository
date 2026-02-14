@@ -5,8 +5,10 @@ This repository contains custom Home Assistant add-ons.
 ## Available add-ons
 
 - **Google Workspace MCP** (`google_workspace_mcp`)
-  - Google Workspace MCP server for Gmail, Calendar, Drive, Docs, Sheets, Slides, Tasks, Contacts, Forms, Chat, Search, and Apps Script.
+  - Google Workspace MCP server for Home Assistant OS.
   - Based on: `taylorwilsdon/google_workspace_mcp`
+  - Runtime package: `workspace-mcp` (inside add-on container)
+  - No separate MCP host/VM required on this stage.
 
 ## Add this repository to Home Assistant
 
@@ -19,3 +21,7 @@ This repository contains custom Home Assistant add-ons.
    ```
 
 4. Refresh the add-on store
+
+## Security note
+
+Do not commit OAuth credentials into this repository. Configure secrets only in Home Assistant add-on options.

@@ -4,10 +4,12 @@ This add-on runs Google Workspace MCP inside Home Assistant.
 
 ### 1) Prepare Google OAuth credentials
 
-Create OAuth 2.0 credentials in Google Cloud and copy:
+Create OAuth 2.0 credentials in your own Google Cloud project and copy:
 
 - `oauth_client_id`
 - `oauth_client_secret`
+
+Use only your own OAuth client. Do not use third-party/shared OAuth apps.
 
 ### 2) Configure add-on options
 
@@ -43,3 +45,15 @@ The server exposes:
 Use your MCP client to connect to the running endpoint on your HA host.
 
 > If OAuth callback URLs fail, set `oauth_redirect_uri` explicitly to the exact callback URL expected by your Google OAuth app.
+
+### 5) Security baseline
+
+- Never store or commit OAuth secrets in Git.
+- Start with minimum tools/APIs only (for example: `gmail calendar drive`).
+- Keep `read_only_mode: true` for initial smoke testing if you want read-only access first.
+- Keep `allow_insecure_transport: false` in production.
+
+### 6) Updates and rollback
+
+- For each release: increase `version` in `config.yaml` and add an entry to `CHANGELOG.md`.
+- To rollback, checkout the previous git tag/commit and reinstall or rebuild the add-on from that revision.

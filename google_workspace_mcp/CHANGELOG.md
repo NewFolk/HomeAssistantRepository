@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1
+
+- Fixed boolean option parsing in `run.sh` to reliably pass `true/false` values to runtime env.
+- Set add-on `watchdog` to `/health` (HA watchdog path format).
+- Expanded operational docs for security baseline, update flow, and rollback.
+
 ## 0.1.0
 
 - Initial release
