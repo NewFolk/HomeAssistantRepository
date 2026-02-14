@@ -1,0 +1,42 @@
+configuration:
+  oauth_client_id:
+    name: OAuth Client ID
+    description: Google OAuth 2.0 client ID
+  oauth_client_secret:
+    name: OAuth Client Secret
+    description: Google OAuth 2.0 client secret
+  oauth_redirect_uri:
+    name: OAuth Redirect URI
+    description: Optional explicit OAuth callback URL override
+  external_url:
+    name: External URL
+    description: Optional public/LAN base URL shown by the server
+  user_google_email:
+    name: User Google Email
+    description: Optional default user email for single-user mode
+  tool_tier:
+    name: Tool Tier
+    description: core, extended, or complete
+  tools:
+    name: Enabled Services
+    description: Space-separated services (e.g. gmail calendar drive)
+  enable_oauth21:
+    name: Enable OAuth 2.1
+    description: Recommended for modern MCP clients
+  stateless_mode:
+    name: Stateless Mode
+    description: In-memory/auth session mode (requires OAuth 2.1)
+  single_user_mode:
+    name: Single User Mode
+    description: Legacy single-user mode (cannot be used with OAuth 2.1)
+  read_only_mode:
+    name: Read-Only Mode
+    description: Requests read-only scopes and disables write tools
+  allow_insecure_transport:
+    name: Allow Insecure Transport
+    description: Development only; allows HTTP redirect flows
+  transport:
+    name: Transport
+    description: streamable-http (recommended) or stdio
+network:
+  8000/tcp: Google Workspace MCP API

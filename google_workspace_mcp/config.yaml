@@ -1,0 +1,47 @@
+name: Google Workspace MCP
+version: "0.1.0"
+slug: google_workspace_mcp
+description: Google Workspace MCP server for Gmail, Calendar, Drive, Docs, Sheets, and more.
+url: https://github.com/NewFolk/HomeAssistantRepository/tree/main/google_workspace_mcp
+startup: services
+boot: auto
+init: false
+advanced: true
+stage: experimental
+panel_icon: mdi:google
+arch:
+  - amd64
+  - aarch64
+ports:
+  8000/tcp: 8000
+ports_description:
+  8000/tcp: Google Workspace MCP (streamable-http)
+watchdog: http://[HOST]:[PORT:8000]/health
+options:
+  oauth_client_id: ""
+  oauth_client_secret: ""
+  oauth_redirect_uri: ""
+  external_url: ""
+  user_google_email: ""
+  tool_tier: core
+  tools: "gmail calendar drive docs sheets"
+  enable_oauth21: true
+  stateless_mode: false
+  single_user_mode: false
+  read_only_mode: false
+  allow_insecure_transport: false
+  transport: streamable-http
+schema:
+  oauth_client_id: str
+  oauth_client_secret: password
+  oauth_redirect_uri: "str?"
+  external_url: "str?"
+  user_google_email: "str?"
+  tool_tier: list(core|extended|complete)
+  tools: "str?"
+  enable_oauth21: bool
+  stateless_mode: bool
+  single_user_mode: bool
+  read_only_mode: bool
+  allow_insecure_transport: bool
+  transport: list(streamable-http|stdio)
