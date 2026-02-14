@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.4
+
+- Enabled `host_network: true` so the add-on can bind directly on the HAOS host network.
+- This is required for common reverse-proxy setups (e.g. Keenetic/Nginx) that upstream to `HA_HOST:8000`.
+
 ## 0.1.3
 
 - Fixed Home Assistant Supervisor validation: `watchdog` now uses full URL format `http://[HOST]:[PORT:8000]/health`.

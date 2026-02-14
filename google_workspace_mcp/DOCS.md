@@ -44,7 +44,26 @@ The server exposes:
 
 Use your MCP client to connect to the running endpoint on your HA host.
 
+- LAN/direct: `http://<ha-host>:8000/mcp`
+- Reverse proxy (HTTPS): `https://<your-domain>/mcp`
+
 > If OAuth callback URLs fail, set `oauth_redirect_uri` explicitly to the exact callback URL expected by your Google OAuth app.
+
+### 5) Reverse proxy quick checks
+
+If you use `external_url` with HTTPS domain, make sure the proxy forwards these paths to backend `http://<ha-host>:8000`:
+
+- `/mcp`
+- `/.well-known/*`
+- `/authorize`
+- `/token`
+- `/register`
+- `/oauth2callback`
+
+A quick check:
+
+- `https://<your-domain>/health` must return `200`
+- `https://<your-domain>/.well-known/oauth-authorization-server` must return JSON (not 502)
 
 ### 5) Security baseline
 
