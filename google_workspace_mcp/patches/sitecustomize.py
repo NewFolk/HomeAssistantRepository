@@ -1,15 +1,17 @@
 """Runtime patch for MCP/Google OAuth scope interop.
 
 Why this exists:
-- Some MCP clients request client-facing scopes like `mcp:tools` during DCR/auth.
+- Some MCP clients request client-facing scopes like `mcp:tools` during OAuth2.1/DCR/auth.
 - FastMCP OAuth proxy + MCP registration handler can validate client scopes
   against Google required scopes, causing false rejections before Google auth.
+- Some stacks leak client-facing MCP scopes into upstream refresh_token calls,
+  causing `invalid_scope` on refresh and client-side token invalidation.
 
 This patch enforces scope-plane separation:
 1) Client-facing MCP scope plane:
    - local registration validation accepts configured compat scopes.
 2) Upstream Google scope plane:
-   - only Google/OIDC scopes are forwarded to Google authorize endpoint.
+   - only Google/OIDC scopes are forwarded upstream (authorize + refresh).
 """
 
 from __future__ import annotations
@@ -58,7 +60,9 @@ def _patch_fastmcp_oauth_proxy() -> bool:
     Targets:
     - OAuthProxy.__init__ : expands valid_scopes with client compat scopes
     - OAuthProxy._build_upstream_authorize_url : strips non-Google scopes upstream
+    - OAuthProxy._prepare_scopes_for_upstream_refresh : strips non-Google scopes on refresh
     """
+
     try:
         module = importlib.import_module("fastmcp.server.auth.oauth_proxy")
     except Exception:
@@ -73,6 +77,7 @@ def _patch_fastmcp_oauth_proxy() -> bool:
 
     original_init = proxy_cls.__init__
     original_build = proxy_cls._build_upstream_authorize_url
+    original_prepare_refresh = getattr(proxy_cls, "_prepare_scopes_for_upstream_refresh", None)
 
     def patched_init(self, *args, **kwargs):
         required_scopes = kwargs.get("required_scopes")
@@ -99,11 +104,34 @@ def _patch_fastmcp_oauth_proxy() -> bool:
 
         return original_build(self, txn_id, tx)
 
+    def patched_prepare_scopes_for_upstream_refresh(self, scopes):
+        """Prevent MCP-only scopes (e.g. `mcp:tools`) from being sent to Google on refresh.
+
+        Some OAuth providers (Google) reject unknown scopes in refresh_token requests.
+        If that happens, MCP SDK treats it as InvalidGrant and invalidates cached tokens
+        client-side (mcporter deletes `tokens` from ~/.mcporter/credentials.json).
+        """
+
+        upstream_scopes = scopes
+        if original_prepare_refresh is not None:
+            try:
+                upstream_scopes = original_prepare_refresh(self, scopes)
+            except Exception:
+                upstream_scopes = scopes
+
+        try:
+            return _filter_google_scopes(upstream_scopes or [])
+        except Exception:
+            return upstream_scopes
+
     proxy_cls.__init__ = patched_init
     proxy_cls._build_upstream_authorize_url = patched_build_upstream_authorize_url
+    if original_prepare_refresh is not None:
+        proxy_cls._prepare_scopes_for_upstream_refresh = patched_prepare_scopes_for_upstream_refresh
+
     proxy_cls._MCP_SCOPE_PLANE_PATCHED = True
     print(
-        "[INFO] Applied MCP scope-plane patch: OAuthProxy.__init__ + _build_upstream_authorize_url",
+        "[INFO] Applied MCP scope-plane patch: OAuthProxy.__init__ + _build_upstream_authorize_url + _prepare_scopes_for_upstream_refresh",
         file=sys.stderr,
     )
     return True
@@ -117,6 +145,7 @@ def _patch_mcp_register_handler() -> bool:
 
     Ensures compat scopes are included in options.valid_scopes at request time.
     """
+
     try:
         module = importlib.import_module("mcp.server.auth.handlers.register")
     except Exception:
@@ -153,6 +182,7 @@ def _patch_fastmcp_inmemory_store() -> bool:
 
     This is not the primary failing path in current stack, but kept as defense-in-depth.
     """
+
     try:
         module = importlib.import_module("fastmcp.server.auth.providers.in_memory")
     except Exception:

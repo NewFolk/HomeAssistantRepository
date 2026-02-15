@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.5
+
+- Fix OAuth refresh flow: strip MCP-only compat scopes (e.g. `mcp:tools`) before upstream Google refresh_token call.
+- Prevents `invalid_scope` during refresh which can cause clients like `mcporter` to invalidate/delete cached tokens.
+
 ## 0.2.4
 
 - Persist OAuth proxy state on disk (`/data/oauth-proxy`) by default so MCP client auth survives add-on restarts/updates.

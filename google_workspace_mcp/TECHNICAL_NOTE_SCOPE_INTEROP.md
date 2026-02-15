@@ -77,6 +77,25 @@ Net effect:
 
 ---
 
+## Additional post-mortem (0.2.5): refresh_token invalid_scope
+
+Symptom:
+- After ~1 hour (access token expiry), clients like `mcporter` trigger refresh.
+- Server responds with `invalid_grant` and error description like:
+  `Upstream refresh failed: invalid_scope ... {invalid=[mcp:tools]}`
+- MCP SDK treats `invalid_grant` as recoverable and calls `invalidateCredentials('tokens')`,
+  which removes `tokens` from `~/.mcporter/credentials.json` and forces interactive OAuth again.
+
+Root cause:
+- FastMCP `OAuthProxy` refresh path forwards stored client scopes to the upstream provider
+  via `OAuthProxy._prepare_scopes_for_upstream_refresh`.
+- Default implementation returns scopes unchanged, so MCP-only scopes (e.g. `mcp:tools`) leak
+  into the upstream Google refresh request and Google rejects them as invalid.
+
+Fix:
+- Patch `fastmcp.server.auth.oauth_proxy.OAuthProxy._prepare_scopes_for_upstream_refresh`
+  to forward only Google/OIDC scopes upstream.
+
 ## Where this is implemented
 
 - Patch file: `google_workspace_mcp/patches/sitecustomize.py`
@@ -94,6 +113,7 @@ Net effect:
 2. `mcporter auth <server>` reaches browser consent and completes.
 3. `/mcp` no longer stuck in auth loop after successful login.
 4. Google authorize request contains only Google/OIDC scopes.
+5. After access token expiry, refresh succeeds (no `invalid_scope`) and MCP clients do not lose cached tokens.
 
 ## Rollback
 

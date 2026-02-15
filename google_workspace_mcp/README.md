@@ -174,6 +174,14 @@ If you still get re-auth prompts after restarts, check add-on logs for storage w
 - Use add-on version `0.2.2+`
 - Ensure `client_compat_scopes` includes `mcp:tools`
 
+### `invalid_grant` on refresh / tokens disappear after ~1 hour
+
+If after ~1 hour a tool call triggers OAuth again and `~/.mcporter/credentials.json` loses its `tokens` block:
+
+- Use add-on version `0.2.5+` (fixes upstream refresh scope leak of `mcp:tools`)
+- Restart the add-on
+- Re-run `mcporter auth` once if needed
+
 ### `redirect_uri_mismatch`
 
 - Add exact URI in Google OAuth client:
