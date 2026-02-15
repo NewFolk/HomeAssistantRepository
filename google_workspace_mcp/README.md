@@ -178,7 +178,8 @@ If you still get re-auth prompts after restarts, check add-on logs for storage w
 
 If after ~1 hour a tool call triggers OAuth again and `~/.mcporter/credentials.json` loses its `tokens` block:
 
-- Use add-on version `0.2.5+` (fixes upstream refresh scope leak of `mcp:tools`)
+- Use add-on version `0.2.6+` (adds a 120s grace window for refresh-token rotation to survive duplicate/retied refresh requests)
+- If you were previously hitting `invalid_scope ... mcp:tools` during refresh, `0.2.5+` already fixes that part.
 - Restart the add-on
 - Re-run `mcporter auth` once if needed
 

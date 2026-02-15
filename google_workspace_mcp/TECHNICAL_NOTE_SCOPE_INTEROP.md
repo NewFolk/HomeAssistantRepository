@@ -96,6 +96,28 @@ Fix:
 - Patch `fastmcp.server.auth.oauth_proxy.OAuthProxy._prepare_scopes_for_upstream_refresh`
   to forward only Google/OIDC scopes upstream.
 
+## Additional post-mortem (0.2.6): refresh-token rotation + duplicate refresh requests
+
+Symptom:
+- At access token expiry (~1h), the client triggers refresh.
+- Server logs show refresh-token rotation: `Issued new FastMCP tokens (rotated refresh)`.
+- A second `/token` request may occur immediately after (retry/parallel call), still using the *previous* refresh token.
+- Because rotation is one-time-use, the second request can fail with `invalid_grant`.
+- MCP SDK treats `invalid_grant` as recoverable and calls `invalidateCredentials('tokens')`, causing clients like `mcporter` to delete `tokens` from `~/.mcporter/credentials.json`.
+
+Root cause:
+- FastMCP rotates refresh tokens and deletes old refresh metadata + JTI mapping immediately.
+- Some clients can issue a duplicate refresh request (or retry after transport errors).
+
+Fix:
+- Add a short grace window (default **120s**) where the previous refresh token remains valid.
+- Cache the rotated token response for that previous refresh JTI for the grace TTL and return it (idempotent) if the old refresh is used again.
+
+Implementation:
+- Runtime patch in add-on `patches/sitecustomize.py` monkeypatches `fastmcp.server.auth.oauth_proxy.OAuthProxy.exchange_refresh_token` to:
+  - shorten deletion of old refresh artifacts to the grace TTL instead of immediate delete,
+  - cache the rotated response keyed by old refresh JTI.
+
 ## Where this is implemented
 
 - Patch file: `google_workspace_mcp/patches/sitecustomize.py`

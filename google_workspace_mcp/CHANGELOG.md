@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.6
+
+- Fix refresh-token rotation edge case: add a short grace window (default 120s) so duplicate/retied refresh requests using the previous refresh token do not fail with `invalid_grant`.
+- Prevents clients like `mcporter` from clearing local tokens after a transient/duplicate `/token` request.
+
 ## 0.2.5
 
 - Fix OAuth refresh flow: strip MCP-only compat scopes (e.g. `mcp:tools`) before upstream Google refresh_token call.
