@@ -74,14 +74,25 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Read release versions
+        id: versions
+        shell: bash
+        run: |
+          addon_version="$(sed -nE 's/^version: "([^"]+)"/\1/p' openlist/config.yaml)"
+          upstream_version="$(sed -nE 's|^FROM .*openlist:(v[^@]+)@sha256:.*$|\1|p' openlist/Dockerfile)"
+          test -n "${addon_version}"
+          test -n "${upstream_version}"
+          echo "addon=${addon_version}" >> "${GITHUB_OUTPUT}"
+          echo "upstream=${upstream_version}" >> "${GITHUB_OUTPUT}"
+
       - name: Build image
         run: |
           docker build \
             --platform "linux/${{ matrix.arch }}" \
             --build-arg BUILD_ARCH="${{ matrix.arch }}" \
-            --build-arg BUILD_VERSION="1.1.0" \
+            --build-arg BUILD_VERSION="${{ steps.versions.outputs.addon }}" \
             --tag local/openlist-addon:test \
             ./openlist
 
       - name: Run smoke and persistence tests
-        run: ./openlist/tests/smoke.sh local/openlist-addon:test v4.2.2
+        run: ./openlist/tests/smoke.sh local/openlist-addon:test "${{ steps.versions.outputs.upstream }}"

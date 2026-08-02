@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.1
+
+- Update OpenList from `v4.2.2` to `v4.2.4`.
+- Derive CI release expectations from the add-on metadata and pinned image tag.
+- Improve smoke-test diagnostics when an upstream version does not match.
+
 ## 1.1.0
 
 - Pin OpenList to `v4.2.2` and its immutable container manifest digest.
