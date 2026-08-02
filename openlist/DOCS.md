@@ -16,6 +16,12 @@ OpenList's database, configuration, and generated keys are stored in the add-on'
 
 The container exposes a native Docker health check for the web endpoint, and CI probes that endpoint during every build.
 
+## Web interface
+
+Use **Open Web UI** for access through Home Assistant Ingress. The add-on runs an internal proxy that adapts OpenList's frontend, API, and WebSocket URLs to Home Assistant's installation-specific Ingress path.
+
+If direct access is enabled in the add-on's **Network** section, open `http://HOME_ASSISTANT_HOST:5244/openlist/`. Direct access uses OpenList authentication and should not be exposed to the internet without a trusted HTTPS reverse proxy. Prefer direct access for large uploads because Home Assistant Ingress may buffer upload requests.
+
 ## Home Assistant folders
 
 The add-on can access these Home Assistant folders:
@@ -27,7 +33,7 @@ To expose a local folder through OpenList, configure a local storage provider an
 
 ## Direct network access
 
-Home Assistant Ingress is enabled by default and does not require opening a port. If direct access is needed, set the host port for `5244/tcp` in the add-on's **Network** section. Authentication and TLS must be configured appropriately before exposing OpenList outside a trusted network.
+Home Assistant Ingress is enabled by default and does not require opening a port. If direct access is needed, set the host port for `5244/tcp` in the add-on's **Network** section and use the `/openlist/` path. Authentication and TLS must be configured appropriately before exposing OpenList outside a trusted network.
 
 ## Backup
 
