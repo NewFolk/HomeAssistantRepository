@@ -1,5 +1,5 @@
 name: OpenList
-version: "1.2.0"
+version: "1.2.1"
 slug: openlist
 description: A file-listing and sharing platform with support for many storage providers.
 url: https://github.com/NewFolk/HomeAssistantRepository/tree/main/openlist

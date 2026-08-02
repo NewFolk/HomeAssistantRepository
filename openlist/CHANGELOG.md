@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.1
+
+- Add the official OpenList icon and logo to the Home Assistant add-on presentation.
+- Document the logo attribution and its CC BY-NC-SA 4.0 license.
+
 ## 1.2.0
 
 - Fix the blank OpenList page when opened through Home Assistant Ingress.
