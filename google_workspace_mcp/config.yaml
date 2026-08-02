@@ -1,23 +1,18 @@
 name: Google Workspace MCP
-version: "0.2.6"
+version: "0.2.7"
 slug: google_workspace_mcp
 description: Google Workspace MCP server for Gmail, Calendar, Drive, Docs, Sheets, and more.
 url: https://github.com/NewFolk/HomeAssistantRepository/tree/main/google_workspace_mcp
 startup: services
-boot: auto
 init: false
-advanced: false
-stage: stable
 panel_icon: mdi:google
 arch:
   - amd64
   - aarch64
-host_network: false
 ports:
   8000/tcp: 8000
 ports_description:
   8000/tcp: Google Workspace MCP (streamable-http)
-watchdog: http://[HOST]:[PORT:8000]/health
 options:
   oauth_client_id: ""
   oauth_client_secret: ""

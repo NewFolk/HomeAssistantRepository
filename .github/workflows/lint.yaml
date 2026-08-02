@@ -1,30 +1,87 @@
-name: Lint add-ons
+name: CI
 
 on:
   pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  addon:
-    name: Add-on configuration
+  lint:
+    name: Lint ${{ matrix.addon }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        addon:
+          - google_workspace_mcp
+          - openlist
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
       - name: Run add-on linter
-        uses: frenck/action-addon-linter@v2
+        uses: frenck/action-addon-linter@f995494fd84fae6310d23617e66d0e37de4f14eb # v2.21
+        with:
+          path: ./${{ matrix.addon }}
 
-  repository:
-    name: Repository configuration
+  shell:
+    name: Shell scripts
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
-      - name: Run repository linter
-        uses: frenck/action-addon-repository@v2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
+      - name: Check shell syntax
+        run: |
+          sh -n openlist/run.sh google_workspace_mcp/run.sh
+          bash -n openlist/tests/smoke.sh
+
+      - name: Run ShellCheck
+        run: shellcheck openlist/run.sh google_workspace_mcp/run.sh openlist/tests/smoke.sh
+
+  openlist:
+    name: Build and smoke test (${{ matrix.arch }})
+    needs:
+      - lint
+      - shell
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - amd64
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build image
+        run: |
+          docker build \
+            --platform "linux/${{ matrix.arch }}" \
+            --build-arg BUILD_ARCH="${{ matrix.arch }}" \
+            --build-arg BUILD_VERSION="1.1.0" \
+            --tag local/openlist-addon:test \
+            ./openlist
+
+      - name: Run smoke and persistence tests
+        run: ./openlist/tests/smoke.sh local/openlist-addon:test v4.2.2

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.7
+
+- Remove redundant default metadata fields.
+- Rely on the native Docker health check instead of the obsolete add-on watchdog field.
+
 ## 0.2.6
 
 - Fix refresh-token rotation edge case: add a short grace window (default 120s) so duplicate/retied refresh requests using the previous refresh token do not fail with `invalid_grant`.
