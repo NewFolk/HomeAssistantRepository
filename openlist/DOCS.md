@@ -2,6 +2,8 @@
 
 [OpenList](https://github.com/OpenListTeam/OpenList) provides a single web interface for files stored by many different storage providers.
 
+This add-on currently packages OpenList `v4.2.2`, supports `amd64`, and remains experimental until its Ingress behavior has been verified on a real Home Assistant installation.
+
 ## First start
 
 1. Start the add-on and watch its log until OpenList is ready.
@@ -11,6 +13,8 @@
 5. Add storage providers in the OpenList administration interface.
 
 OpenList's database, configuration, and generated keys are stored in the add-on's persistent `/data` directory and survive restarts and upgrades.
+
+The container exposes a native Docker health check for the web endpoint, and CI probes that endpoint during every build.
 
 ## Home Assistant folders
 
@@ -27,10 +31,9 @@ Home Assistant Ingress is enabled by default and does not require opening a port
 
 ## Backup
 
-Home Assistant add-on backups include `/data`. Create a backup before upgrading the add-on or making significant storage configuration changes.
+Home Assistant add-on backups include `/data`. The add-on uses cold backups, so Home Assistant stops OpenList while taking a backup to keep its database consistent. Create a backup before upgrading the add-on or making significant storage configuration changes.
 
 ## Support
 
 - Add-on packaging issues: [this repository's issue tracker](https://github.com/NewFolk/HomeAssistantRepository/issues)
 - OpenList application issues: [OpenList issue tracker](https://github.com/OpenListTeam/OpenList/issues)
-
