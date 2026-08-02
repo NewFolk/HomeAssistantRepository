@@ -10,10 +10,8 @@ panel_icon: mdi:folder-multiple
 arch:
   - amd64
 ingress: true
-ingress_port: 8099
 ingress_entry: openlist/
 ingress_stream: true
-webui: "http://[HOST]:[PORT:5244]/openlist/"
 backup: cold
 ports:
   5244/tcp: null
