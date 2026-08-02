@@ -22,4 +22,4 @@ upstream_version="$(sed -nE 's|^FROM .*openlist:(v[^@]+)@sha256:.*$|\1|p' openli
 ./openlist/tests/smoke.sh local/openlist-addon:test "${upstream_version}"
 ```
 
-The smoke test builds confidence that the container starts, becomes healthy, serves HTTP, reports the expected upstream version, and reuses its persistent data. It does not replace testing inside Home Assistant.
+The smoke test builds confidence that the container starts, becomes healthy, serves its direct UI, rewrites the simulated Home Assistant Ingress path for frontend assets and API calls, reports the expected upstream version, and reuses its persistent data. It does not replace testing inside Home Assistant.

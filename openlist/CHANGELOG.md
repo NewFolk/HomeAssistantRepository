@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.0
+
+- Fix the blank OpenList page when opened through Home Assistant Ingress.
+- Add an Ingress-aware nginx proxy that rewrites the dynamic Home Assistant path.
+- Keep optional direct access available at `/openlist/` on port `5244`.
+- Test the rewritten frontend configuration, JavaScript asset, API, and persistence in CI.
+
 ## 1.1.1
 
 - Update OpenList from `v4.2.2` to `v4.2.4`.
