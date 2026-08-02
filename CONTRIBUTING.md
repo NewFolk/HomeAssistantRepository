@@ -18,7 +18,8 @@ git diff --check
 sh -n openlist/run.sh google_workspace_mcp/run.sh
 shellcheck openlist/run.sh google_workspace_mcp/run.sh openlist/tests/smoke.sh
 docker build --platform linux/amd64 -t local/openlist-addon:test ./openlist
-./openlist/tests/smoke.sh local/openlist-addon:test v4.2.2
+upstream_version="$(sed -nE 's|^FROM .*openlist:(v[^@]+)@sha256:.*$|\1|p' openlist/Dockerfile)"
+./openlist/tests/smoke.sh local/openlist-addon:test "${upstream_version}"
 ```
 
 The smoke test builds confidence that the container starts, becomes healthy, serves HTTP, reports the expected upstream version, and reuses its persistent data. It does not replace testing inside Home Assistant.

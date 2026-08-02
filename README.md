@@ -7,7 +7,7 @@ This repository contains custom Home Assistant add-ons.
 - **OpenList** (`openlist`)
   - A file-listing and sharing platform for many storage providers.
   - Includes Home Assistant Ingress, persistent configuration, and access to `/share` and `/media`.
-  - Current experimental release: OpenList `v4.2.2` on `amd64`.
+  - Current experimental release: OpenList `v4.2.4` on `amd64`.
   - Based on: `OpenListTeam/OpenList`.
 
 - **Google Workspace MCP** (`google_workspace_mcp`)

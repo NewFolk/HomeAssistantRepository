@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 IMAGE="${1:-local/openlist-addon:test}"
-EXPECTED_VERSION="${2:-v4.2.2}"
+EXPECTED_VERSION="${2:?Expected OpenList version is required as the second argument}"
 CONTAINER="openlist-addon-smoke-$$"
 DATA_DIR="$(mktemp -d)"
 HOST_PORT=""
@@ -74,7 +74,11 @@ version_output="$(
         --entrypoint /opt/openlist/openlist \
         "${IMAGE}" version
 )"
-grep --fixed-strings "Version: ${EXPECTED_VERSION}" <<<"${version_output}"
+if ! grep --quiet --fixed-strings "Version: ${EXPECTED_VERSION}" <<<"${version_output}"; then
+    echo "Expected OpenList ${EXPECTED_VERSION}, but the image reported:" >&2
+    printf '%s\n' "${version_output}" >&2
+    exit 1
+fi
 
 start_container
 test -s "${DATA_DIR}/config.json"

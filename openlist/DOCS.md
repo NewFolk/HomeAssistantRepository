@@ -2,7 +2,7 @@
 
 [OpenList](https://github.com/OpenListTeam/OpenList) provides a single web interface for files stored by many different storage providers.
 
-This add-on currently packages OpenList `v4.2.2`, supports `amd64`, and remains experimental until its Ingress behavior has been verified on a real Home Assistant installation.
+This add-on currently packages OpenList `v4.2.4`, supports `amd64`, and remains experimental until its Ingress behavior has been verified on a real Home Assistant installation.
 
 ## First start
 
