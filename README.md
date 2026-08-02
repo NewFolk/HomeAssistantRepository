@@ -4,6 +4,11 @@ This repository contains custom Home Assistant add-ons.
 
 ## Available add-ons
 
+- **OpenList** (`openlist`)
+  - A file-listing and sharing platform for many storage providers.
+  - Includes Home Assistant Ingress, persistent configuration, and access to `/share` and `/media`.
+  - Based on: `OpenListTeam/OpenList`.
+
 - **Google Workspace MCP** (`google_workspace_mcp`)
   - Google Workspace MCP server for Home Assistant OS.
   - Based on: `taylorwilsdon/google_workspace_mcp`

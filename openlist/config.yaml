@@ -1,0 +1,30 @@
+name: OpenList
+version: "1.0.0"
+slug: openlist
+description: A file-listing and sharing platform with support for many storage providers.
+url: https://github.com/NewFolk/HomeAssistantRepository/tree/main/openlist
+startup: services
+boot: auto
+init: false
+stage: stable
+advanced: false
+panel_icon: mdi:folder-multiple
+arch:
+  - amd64
+  - aarch64
+  - armv7
+ingress: true
+ingress_port: 5244
+ingress_stream: true
+ports:
+  5244/tcp: null
+ports_description:
+  5244/tcp: OpenList web interface (optional; Ingress is enabled by default)
+map:
+  - type: share
+    read_only: false
+  - type: media
+    read_only: true
+options: {}
+schema: {}
+

@@ -1,0 +1,30 @@
+name: Lint add-ons
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  addon:
+    name: Add-on configuration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Run add-on linter
+        uses: frenck/action-addon-linter@v2
+
+  repository:
+    name: Repository configuration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Run repository linter
+        uses: frenck/action-addon-repository@v2
+
