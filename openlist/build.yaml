@@ -1,0 +1,5 @@
+build_from:
+  amd64: ghcr.io/openlistteam/openlist:latest
+  aarch64: ghcr.io/openlistteam/openlist:latest
+  armv7: ghcr.io/openlistteam/openlist:latest
+
