@@ -75,9 +75,17 @@ INGRESS_ENTRY="$(resolve_ingress_entry)" || {
 }
 
 case "${INGRESS_ENTRY}" in
-    /api/hassio_ingress/[A-Za-z0-9_-]*) ;;
+    /api/hassio_ingress/*)
+        ingress_token="${INGRESS_ENTRY#/api/hassio_ingress/}"
+        case "${ingress_token}" in
+            ""|*[!A-Za-z0-9_-]*)
+                echo "[ERROR] Supervisor returned an invalid Ingress token" >&2
+                exit 1
+                ;;
+        esac
+        ;;
     *)
-        echo "[ERROR] Invalid Home Assistant Ingress path: ${INGRESS_ENTRY}" >&2
+        echo "[ERROR] Supervisor returned an invalid Ingress path" >&2
         exit 1
         ;;
 esac
@@ -90,7 +98,7 @@ export SITE_URL="${OPENLIST_PATH}"
 
 echo "[INFO] Starting OpenList on port 5244"
 echo "[INFO] Starting Home Assistant Ingress proxy on port 8099"
-echo "[INFO] Ingress entry: ${INGRESS_ENTRY}${OPENLIST_PATH}/"
+echo "[INFO] Home Assistant Ingress path configured"
 echo "[INFO] Persistent application data: /data"
 
 "${OPENLIST_BIN}" server --data /data --no-prefix --log-std &
