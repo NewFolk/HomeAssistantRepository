@@ -9,7 +9,14 @@ HOST_PORT=""
 
 cleanup() {
     docker rm --force "${CONTAINER}" >/dev/null 2>&1 || true
-    rm -rf "${DATA_DIR}"
+    docker run --rm \
+        --platform linux/amd64 \
+        --entrypoint /bin/sh \
+        --volume "${DATA_DIR}:/data" \
+        "${IMAGE}" \
+        -c 'rm -rf /data/* /data/.[!.]* /data/..?*' \
+        >/dev/null 2>&1 || true
+    rmdir "${DATA_DIR}" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
