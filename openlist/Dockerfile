@@ -1,4 +1,4 @@
-FROM docker.io/openlistteam/openlist:v4.2.4@sha256:783471c2e72f6430d7a8fa21361ab5d1ce01d810b7418125d484c50b467c396c
+FROM docker.io/openlistteam/openlist:v4.2.5@sha256:3b9e56330ebf4aa40192e566bbbd79567591bb13c0ac252db02c41616cd75d1d
 
 ARG BUILD_VERSION="1.2.1"
 ARG BUILD_ARCH="amd64"
