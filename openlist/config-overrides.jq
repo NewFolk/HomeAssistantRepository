@@ -4,8 +4,10 @@ def options:
   |
   (if ($options | length) == 0 then {} else $options[0] end)
   | if type != "object" then error("HA options must be an object") else . end
-  | if (keys - ["openlist"] | length) != 0 then
+  | if (keys - ["openlist", "ingress_auto_login"] | length) != 0 then
       error("Unknown HA option; put OpenList settings under openlist:") else . end
+  | if has("ingress_auto_login") and (.ingress_auto_login | type) != "boolean" then
+      error("ingress_auto_login must be a boolean") else . end
   | if has("openlist") then .openlist else {} end
   | if type != "object" then error("openlist must be an object, not a string/list/null") else . end;
 

@@ -21,9 +21,18 @@ python3 -m unittest discover -s scripts -p 'test_*.py'
 docker build --platform linux/amd64 -t local/openlist-addon:test ./openlist
 upstream_version="$(sed -nE 's|^FROM .*openlist:(v[^@]+)@sha256:.*$|\1|p' openlist/Dockerfile)"
 ./openlist/tests/smoke.sh local/openlist-addon:test "${upstream_version}"
+python3 openlist/tests/ingress-auth-smoke.py local/openlist-addon:test
 ```
 
 The smoke test builds confidence that the container starts, becomes healthy, serves its direct UI, rewrites the simulated Home Assistant Ingress path for frontend assets and API calls, reports the expected upstream version, and reuses its persistent data. It does not replace testing inside Home Assistant.
+
+## Ingress authentication trust boundary
+
+`ingress_auto_login` defaults to false. When enabled, `panel_admin: true` is a security boundary, not just a sidebar preference. Supervisor 2026.10.2 is the first supported version: [upstream enforcement change](https://github.com/home-assistant/supervisor/pull/7308). The add-on checks the stable Supervisor version through the already permitted `/info` endpoint before starting auto-login; do not remove this check or substitute trust in a client-provided role/name header. No `hassio_api`, `homeassistant_api`, `auth_api`, host networking or privileged role is needed.
+
+nginx's internal auth subrequest forwards its actual peer IP, HA user ID, original method, host/protocol and Origin to a loopback-only Python helper. The helper reads the existing admin token from SQLite in read-only mode, requires an active OpenList administrator, and returns that token only to the internal nginx subrequest. nginx replaces the client's Authorization header on the upstream request; it does not issue a browser session. Do not expose port 8098, turn the internal auth location into a public endpoint, log the returned token or replace the native frontend's `/api/me` request with a browser-token injection.
+
+Helper tests cover version rejection, opt-in configuration, read-only access, rotation, identity/peer checks and Origin checks. The separate auth smoke uses a mock `/info` server at Supervisor's real IP on an isolated Docker network, exercises the actual OpenList admin API without browser credentials, rejects forged/direct/missing-identity requests, tests old-Supervisor failure and restores password mode on the same data directory. The mock does **not** implement HA sessions or prove HA's admin/non-admin authorization. Before marking the feature stable, test real HA with admin/non-admin accounts, password mode, logout, token rotation, WebSockets, uploads and proxy/HTTPS Origins.
 
 ## Automated OpenList patch releases
 

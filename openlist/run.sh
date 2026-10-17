@@ -6,11 +6,17 @@ NGINX_TEMPLATE="/etc/nginx/openlist-ingress.conf.template"
 NGINX_CONFIG="/tmp/openlist-ingress.conf"
 OPENLIST_PID=""
 NGINX_PID=""
+AUTH_PID=""
 
 # ShellCheck cannot infer that this function is invoked by the EXIT trap.
 # shellcheck disable=SC2317
 cleanup() {
     trap - EXIT INT TERM
+
+    if [ -n "${AUTH_PID}" ]; then
+        kill "${AUTH_PID}" >/dev/null 2>&1 || true
+        wait "${AUTH_PID}" >/dev/null 2>&1 || true
+    fi
 
     if [ -n "${NGINX_PID}" ]; then
         kill "${NGINX_PID}" >/dev/null 2>&1 || true
@@ -78,6 +84,8 @@ if [ ! -f /data/config.json ]; then
     chmod 600 /data/config.json
 fi
 /usr/local/bin/openlist-prepare-config
+python3 /usr/local/lib/openlist-addon/ingress-auth.py configure
+ingress_auto_login="$(jq -r '.ingress_auto_login // false' /data/options.json 2>/dev/null || printf false)"
 
 INGRESS_ENTRY="$(resolve_ingress_entry)" || {
     echo "[ERROR] Could not determine the Home Assistant Ingress path" >&2
@@ -112,11 +120,21 @@ echo "[INFO] Persistent application data: /data"
 "${OPENLIST_BIN}" server --data /data --config /data/.openlist-runtime.json --no-prefix --log-std &
 OPENLIST_PID="$!"
 
+if [ "${ingress_auto_login}" = true ]; then
+    echo "[INFO] Ingress auto-login enabled for Home Assistant administrators only"
+    python3 /usr/local/lib/openlist-addon/ingress-auth.py serve &
+    AUTH_PID="$!"
+fi
+
 nginx -c "${NGINX_CONFIG}" -g 'daemon off;' &
 NGINX_PID="$!"
 
 while kill -0 "${OPENLIST_PID}" >/dev/null 2>&1 \
     && kill -0 "${NGINX_PID}" >/dev/null 2>&1; do
+    if [ -n "${AUTH_PID}" ] && ! kill -0 "${AUTH_PID}" >/dev/null 2>&1; then
+        echo "[ERROR] Ingress authentication helper stopped unexpectedly" >&2
+        exit 1
+    fi
     sleep 1
 done
 

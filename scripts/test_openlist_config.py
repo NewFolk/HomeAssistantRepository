@@ -78,6 +78,7 @@ class ConfigTests(unittest.TestCase):
             {"openlist": {"scheme": None}},
             {"openlist": "secret-value"}, {"openlist": []},
             {"openlist": None}, {"typo": {}}, [], None,
+            {"ingress_auto_login": "true"}, {"ingress_auto_login": None},
         ):
             with self.subTest(options=options):
                 result = self.prepare(options)
@@ -85,6 +86,13 @@ class ConfigTests(unittest.TestCase):
                 self.assertIn("[ERROR]", result.stderr)
                 self.assertEqual(self.runtime.read_bytes(), previous)
                 self.assertEqual(json.loads(self.base.read_text()), self.original)
+
+    def test_wrapper_option_is_not_merged_into_openlist(self):
+        result = self.prepare({"ingress_auto_login": True, "openlist": {"token_expires_in": 72}})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        runtime = json.loads(self.runtime.read_text())
+        self.assertEqual(runtime["token_expires_in"], 72)
+        self.assertNotIn("ingress_auto_login", runtime)
 
     def test_malformed_json_and_empty_base(self):
         self.options.write_text('{"openlist":')

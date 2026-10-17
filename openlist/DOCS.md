@@ -8,7 +8,7 @@ This add-on currently packages OpenList `v4.2.7`, supports `amd64`, and remains 
 
 1. Start the add-on and watch its log until OpenList is ready.
 2. Select **Open Web UI** on the add-on page.
-3. Sign in with the initial administrator credentials printed in the add-on log.
+3. Sign in with the initial administrator credentials printed in the add-on log, or enable the optional Ingress auto-login described below.
 4. Change the administrator password immediately.
 5. Add storage providers in the OpenList administration interface.
 
@@ -21,6 +21,27 @@ The container exposes a native Docker health check for the web endpoint, and CI 
 Use **Open Web UI** for access through Home Assistant Ingress. The add-on runs an internal proxy that adapts OpenList's frontend, API, and WebSocket URLs to Home Assistant's installation-specific Ingress path.
 
 If direct access is enabled in the add-on's **Network** section, open `http://HOME_ASSISTANT_HOST:5244/openlist/`. Direct access uses OpenList authentication and should not be exposed to the internet without a trusted HTTPS reverse proxy. Prefer direct access for large uploads because Home Assistant Ingress may buffer upload requests.
+
+### Optional administrator auto-login through Ingress
+
+With **Supervisor 2026.10.2 or newer**, you can open OpenList as its existing administrator without entering an OpenList password. Add this top-level option in the add-on's **Configuration** tab, keeping your existing `openlist` settings:
+
+```yaml
+ingress_auto_login: true
+openlist: {}
+```
+
+Save, restart the add-on, and select **Open Web UI** while signed in to Home Assistant as an administrator. The default is `ingress_auto_login: false`, which keeps normal OpenList login. Set it back to `false` and restart to disable auto-login. Do not replace a populated `openlist` mapping with `{}` unless you want to remove its overrides.
+
+Security boundaries:
+
+- Only Home Assistant administrators can use this admin-only Ingress panel. Supervisor 2026.10.2 introduced the required [server-side `panel_admin` enforcement](https://github.com/home-assistant/supervisor/pull/7308); hiding a menu entry on older versions was not sufficient. Startup fails with a log message if auto-login is requested but the minimum stable Supervisor version cannot be verified. Update Supervisor or disable the option to recover.
+- The proxy accepts automatic credentials only on requests from Supervisor's internal IP with its authenticated user header. Missing identity, direct/spoofed requests and cross-origin browser requests are rejected. State-changing browser requests must provide a matching `Origin` header.
+- The existing OpenList admin API token is read from SQLite in read-only mode and attached to the internal upstream request. Auto-login does not return a new login token/cookie to the browser, patch frontend JavaScript, reset passwords or change the database. Token rotation is picked up on the next request. OpenList's own administration pages can still expose secrets to administrators as usual.
+- This intentionally bypasses OpenList's password and second factor **through Ingress only**. Protect your Home Assistant administrator accounts and use HA MFA. Everyone using this route shares the same OpenList administrator permissions; actions are not separated into individual OpenList accounts. Signing out inside OpenList does not revoke HA access: sign out of HA or disable this option.
+- Port `5244/tcp` remains **unpublished by default**. If you explicitly publish it, it still uses normal OpenList authentication; HA headers do not grant access there. The feature does not enable guest access or create new filesystem mounts. Never expose the internal proxy/helper ports `8099`/`8098` directly.
+
+The feature is covered by helper and real-container tests, but still requires validation on your Home Assistant installation, including an HA administrator, a non-admin account and logout behavior. Keep a backup before updating. No Home Assistant Core API access or Supervisor administrator role is granted to the add-on.
 
 ## OpenList settings in Home Assistant
 
