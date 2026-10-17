@@ -10,12 +10,17 @@ FILTER="${4:-/usr/local/lib/openlist-addon/config-overrides.jq}"
 if [ ! -f "${OPTIONS_FILE}" ]; then
     OPTIONS_FILE=/dev/null
 fi
+PREVIOUS_CONFIG=/dev/null
+if [ -s "${RUNTIME_CONFIG}" ]; then
+    PREVIOUS_CONFIG="${RUNTIME_CONFIG}"
+fi
 
 # Write atomically. Keep both the persistent source and last valid runtime file
 # unchanged if options are malformed. Never print configuration values/secrets.
 temporary="$(mktemp "${RUNTIME_CONFIG}.XXXXXX")"
 trap 'rm -f "${temporary}"' EXIT
-if ! jq --exit-status --slurpfile options "${OPTIONS_FILE}" -f "${FILTER}" \
+if ! jq --exit-status --slurpfile options "${OPTIONS_FILE}" \
+    --slurpfile previous "${PREVIOUS_CONFIG}" -f "${FILTER}" \
     "${BASE_CONFIG}" > "${temporary}"; then
     echo "[ERROR] Cannot apply HA OpenList settings; fix the add-on Configuration and restart" >&2
     exit 1

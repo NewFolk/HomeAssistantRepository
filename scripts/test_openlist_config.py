@@ -51,6 +51,14 @@ class ConfigTests(unittest.TestCase):
         self.assertNotIn("future_field", restored)
         self.assertEqual(self.runtime.stat().st_mode & 0o777, 0o600)
 
+    def test_keep_upstream_migration_marker_without_old_overrides(self):
+        self.runtime.write_text(json.dumps({"last_launched_version": "v4.2.7", "token_expires_in": 168}))
+        result = self.prepare({"openlist": {}})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        runtime = json.loads(self.runtime.read_text())
+        self.assertEqual(runtime["last_launched_version"], "v4.2.7")
+        self.assertNotIn("token_expires_in", runtime)
+
     def test_reject_protected_fields_and_bad_structure(self):
         self.assertEqual(self.prepare({}).returncode, 0)
         previous = self.runtime.read_bytes()

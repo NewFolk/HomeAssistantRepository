@@ -12,7 +12,7 @@ def options:
 def validate:
   . as $config
   | [
-      ["force"], ["site_url"],
+      ["force"], ["site_url"], ["last_launched_version"],
       ["scheme", "address"], ["scheme", "http_port"],
       ["scheme", "https_port"], ["scheme", "force_https"],
       ["scheme", "unix_file"], ["database", "type"], ["database", "db_file"]
@@ -35,3 +35,8 @@ def validate:
     scheme: {address: "0.0.0.0", http_port: 5244, https_port: -1, force_https: false, unix_file: ""},
     database: {type: "sqlite3", db_file: "/data/data.db"}
   }
+# Carry only the upstream migration marker from the last working copy. Never
+# turn previous user overrides back into permanent source settings.
+| if ($previous[0].last_launched_version // "") != "" then
+    .last_launched_version = $previous[0].last_launched_version
+  else . end
