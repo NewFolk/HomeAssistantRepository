@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.0
+
+- Add opt-in `ingress_auto_login` for the existing OpenList administrator through Home Assistant Ingress.
+- Require Supervisor 2026.10.2+ and an admin-only panel so non-admin HA users cannot inherit OpenList admin rights.
+- Keep upstream credentials server-side, reject spoofed/missing Ingress identity and cross-origin writes, and preserve normal direct-port authentication.
+- Keep the direct port disabled by default, existing passwords/settings unchanged, and provide a simple opt-out.
+- Test authentication boundaries, the Supervisor version gate, rollback and existing persistence in CI.
+- Document OpenList 4.2.7's first-run setup wizard and require an initialized administrator before enabling auto-login.
+
 ## 1.3.0
 
 - Accept arbitrary OpenList config.json overrides in Home Assistant's YAML configuration under `openlist`.

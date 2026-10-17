@@ -127,3 +127,6 @@ jobs:
 
       - name: Run smoke and persistence tests
         run: ./openlist/tests/smoke.sh local/openlist-addon:test "${{ steps.versions.outputs.upstream }}"
+
+      - name: Test Ingress admin authentication boundaries
+        run: python3 openlist/tests/ingress-auth-smoke.py local/openlist-addon:test
