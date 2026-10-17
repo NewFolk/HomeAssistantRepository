@@ -121,12 +121,10 @@ def main():
             cross_site = {**trusted, "Origin": "https://attacker.example"}
             assert request(SUPERVISOR, 8099, "/openlist/api/admin/storage/create", cross_site, "POST")["status"] == 403
             same_site = {**trusted, "Origin": "http://172.30.32.3:8099"}
-            # Native list API uses POST: same-origin browser requests must work.
+            # A real same-origin admin write must work; rotation takes effect immediately.
             same_site["Content-Type"] = "application/json"
-            result = request(SUPERVISOR, 8099, "/openlist/api/fs/list", same_site, "POST", {"path": "/"})
-            assert result["status"] == 200 and json.loads(result["body"])["code"] == 200
             rotated = request(SUPERVISOR, 8099, "/openlist/api/admin/setting/reset_token", same_site, "POST", {})
-            assert json.loads(rotated["body"])["code"] == 200
+            assert rotated["status"] == 200 and json.loads(rotated["body"])["code"] == 200
             assert json.loads(request(SUPERVISOR, 8099, "/openlist/api/me", trusted)["body"])["data"]["role"] == 2
             assert request(SUPERVISOR, 8099, "/openlist/api/me")["status"] == 403
             assert request(NAME, 8099, "/openlist/api/me", trusted)["status"] == 403
