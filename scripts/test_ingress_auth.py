@@ -62,24 +62,33 @@ class IngressAuthTests(unittest.TestCase):
         options = self.directory / "options.json"
         output = self.directory / "auth.conf"
         with patch.object(AUTH, "check_supervisor") as check:
-            AUTH.configure(options, output)
+            AUTH.configure(options, output, self.config)
             check.assert_not_called()
             self.assertNotIn("auth_request", output.read_text())
             options.write_text('{"ingress_auto_login":true}')
-            AUTH.configure(options, output)
+            AUTH.configure(options, output, self.config)
             check.assert_called_once()
             self.assertIn("auth_request", output.read_text())
             self.assertNotIn("test-secret", output.read_text())
             options.write_text('{"ingress_auto_login":"true"}')
             with self.assertRaises(ValueError):
-                AUTH.configure(options, output)
+                AUTH.configure(options, output, self.config)
 
     def test_unavailable_supervisor_never_enables_auth(self):
         options = self.directory / "options.json"
         options.write_text('{"ingress_auto_login":true}')
         output = self.directory / "auth.conf"
         with patch.object(AUTH, "check_supervisor", side_effect=OSError), self.assertRaises(OSError):
-            AUTH.configure(options, output)
+            AUTH.configure(options, output, self.config)
+        self.assertFalse(output.exists())
+
+    def test_no_administrator_cannot_activate_auto_login(self):
+        self.mutate('DELETE FROM x_users')
+        options = self.directory / "options.json"
+        options.write_text('{"ingress_auto_login":true}')
+        output = self.directory / "auth.conf"
+        with patch.object(AUTH, "check_supervisor"), self.assertRaises(ValueError):
+            AUTH.configure(options, output, self.config)
         self.assertFalse(output.exists())
 
     def test_read_only_token_lookup_and_rotation(self):

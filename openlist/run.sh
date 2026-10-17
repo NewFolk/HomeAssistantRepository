@@ -79,7 +79,7 @@ fi
 if [ ! -f /data/config.json ]; then
     printf '{}\n' > /tmp/openlist-empty-config.json
     /usr/local/bin/openlist-prepare-config /tmp/openlist-empty-config.json
-    echo "[INFO] Initializing persistent OpenList configuration and administrator"
+    echo "[INFO] Initializing persistent OpenList configuration"
     "${OPENLIST_BIN}" admin --data /data --log-std
     chmod 600 /data/config.json
 fi

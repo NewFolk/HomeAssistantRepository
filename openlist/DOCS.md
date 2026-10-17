@@ -8,8 +8,8 @@ This add-on currently packages OpenList `v4.2.7`, supports `amd64`, and remains 
 
 1. Start the add-on and watch its log until OpenList is ready.
 2. Select **Open Web UI** on the add-on page.
-3. Sign in with the initial administrator credentials printed in the add-on log, or enable the optional Ingress auto-login described below.
-4. Change the administrator password immediately.
+3. On a fresh OpenList 4.2.7 installation, complete the web setup wizard and choose the administrator username and a strong password. Keep `ingress_auto_login: false` until setup is complete. Existing installations keep their administrator account; older OpenList releases printed a generated initial password in the log.
+4. Change any old generated/default administrator password immediately.
 5. Add storage providers in the OpenList administration interface.
 
 OpenList's database, configuration, and generated keys are stored in the add-on's persistent `/data` directory and survive restarts and upgrades.
@@ -31,7 +31,7 @@ ingress_auto_login: true
 openlist: {}
 ```
 
-Save, restart the add-on, and select **Open Web UI** while signed in to Home Assistant as an administrator. The default is `ingress_auto_login: false`, which keeps normal OpenList login. Set it back to `false` and restart to disable auto-login. Do not replace a populated `openlist` mapping with `{}` unless you want to remove its overrides.
+Complete OpenList's initial setup first. Save, restart the add-on, and select **Open Web UI** while signed in to Home Assistant as an administrator. The default is `ingress_auto_login: false`, which keeps normal OpenList login. Set it back to `false` and restart to disable auto-login. Do not replace a populated `openlist` mapping with `{}` unless you want to remove its overrides.
 
 Security boundaries:
 
@@ -71,7 +71,7 @@ Save and restart the add-on. Numbers and booleans retain their types; use `true`
 
 The add-on owns `force`, `site_url`, `last_launched_version`, `scheme.address`, `scheme.http_port`, `scheme.https_port`, `scheme.force_https`, `scheme.unix_file`, `database.type`, and `database.db_file`. Do not specify these in overrides: they keep Ingress, health checks, and the persistent SQLite database working. An attempt to override them stops startup with the offending field name in the log. Root/section structure and JSON syntax are checked before launching. OpenList 4.2.7 has no standalone config-validation command; it validates its own field types during startup and reports errors in the log. Configuration values are not dumped by the wrapper.
 
-On a fresh installation, the upstream `admin` command initializes the persistent source and administrator before the first working copy is built. Existing installations keep their source configuration and database. Paths outside `/data`, `/share`, and `/media` do not acquire persistent storage or extra host access by being specified here.
+On a fresh installation, the upstream `admin` command initializes the persistent source before the first working copy is built. In OpenList 4.2.7 the administrator is then created through the web setup wizard, not automatically by that command. Existing installations keep their source configuration and database. Paths outside `/data`, `/share`, and `/media` do not acquire persistent storage or extra host access by being specified here.
 
 These overrides cover file-based OpenList configuration, not users, storage providers, or settings stored in its database. Continue managing those through the OpenList UI. Task persistence applies only to future tasks and only to task types supported upstream; ordinary upload and decompress-upload tasks do not support persistence in this version. Enabling persistence cannot recover an earlier in-memory task list.
 

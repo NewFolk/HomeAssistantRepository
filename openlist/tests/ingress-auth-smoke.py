@@ -55,6 +55,16 @@ except Exception as error:
     raise AssertionError("Auth smoke container did not become healthy")
 
 
+def expect_stopped(message):
+    for _ in range(30):
+        state = json.loads(docker("inspect", NAME))[0]["State"]
+        if not state["Running"]:
+            break
+        time.sleep(1)
+    assert not state["Running"] and state["ExitCode"] != 0
+    assert message in docker("logs", NAME)
+
+
 def request(origin, port, path, headers=None, method="GET", body=None):
     host = "172.30.32.3" if origin == SUPERVISOR else "127.0.0.1"
     code = """import json,sys,urllib.request,urllib.error
@@ -83,12 +93,16 @@ def main():
             docker("run", "-d", "--name", SUPERVISOR, "--network", NETWORK, "--ip", "172.30.32.2",
                    "--entrypoint", "python3", "-v", f"{TESTS}:/tests:ro", "-v", f"{fixtures}:/fixtures:ro",
                    IMAGE, "/tests/mock-supervisor.py")
+            write_options(data, {"ingress_auto_login": True, "openlist": {}})
+            start(data)
+            expect_stopped("active OpenList administrator")
             write_options(data, {"ingress_auto_login": False, "openlist": {}})
             start(data)
             healthy()
-            docker("rm", "-f", NAME)
-            docker("run", "--rm", "--entrypoint", "/opt/openlist/openlist", "-v", f"{data}:/data", IMAGE,
-                   "admin", "set", "ci-only-fixture-password", "--data", "/data", "--config", "/data/.openlist-runtime.json", "--log-std")
+            setup = request(SUPERVISOR, 5244, "/openlist/api/public/init/setup",
+                            {"Content-Type": "application/json"}, "POST",
+                            {"username": "admin", "password": "ci-only-fixture-password"})
+            assert json.loads(setup["body"])["code"] == 200
             write_options(data, {"ingress_auto_login": True, "openlist": {}})
             start(data)
             healthy()
@@ -111,6 +125,9 @@ def main():
             same_site["Content-Type"] = "application/json"
             result = request(SUPERVISOR, 8099, "/openlist/api/fs/list", same_site, "POST", {"path": "/"})
             assert result["status"] == 200 and json.loads(result["body"])["code"] == 200
+            rotated = request(SUPERVISOR, 8099, "/openlist/api/admin/setting/reset_token", same_site, "POST", {})
+            assert json.loads(rotated["body"])["code"] == 200
+            assert json.loads(request(SUPERVISOR, 8099, "/openlist/api/me", trusted)["body"])["data"]["role"] == 2
             assert request(SUPERVISOR, 8099, "/openlist/api/me")["status"] == 403
             assert request(NAME, 8099, "/openlist/api/me", trusted)["status"] == 403
             assert request(SUPERVISOR, 8099, "/_openlist_ingress_auth", trusted)["status"] == 404
@@ -127,13 +144,7 @@ def main():
             # Old Supervisor must not activate auto-login, even on an existing DB.
             version.write_text("2026.10.1")
             start(data)
-            for _ in range(30):
-                state = json.loads(docker("inspect", NAME))[0]["State"]
-                if not state["Running"]:
-                    break
-                time.sleep(1)
-            assert not state["Running"] and state["ExitCode"] != 0
-            assert "Supervisor 2026.10.2+" in docker("logs", NAME)
+            expect_stopped("Supervisor 2026.10.2+")
             # Roll back the option without losing the initialized DB or admin.
             write_options(data, {"ingress_auto_login": False, "openlist": {}})
             start(data)

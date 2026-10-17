@@ -37,13 +37,14 @@ def check_supervisor():
         raise ValueError("Ingress auto-login requires Supervisor 2026.10.2 or newer")
 
 
-def configure(options_path, output_path):
+def configure(options_path, output_path, config_path):
     options = json.loads(options_path.read_text()) if options_path.exists() else {}
     enabled = options.get("ingress_auto_login", False)
     if type(enabled) is not bool:
         raise ValueError("ingress_auto_login must be a boolean")
     if enabled:
         check_supervisor()
+        admin_token(config_path)
     output_path.write_text(AUTH_CONFIG if enabled else "# Ingress auto-login is disabled.\n")
 
 
@@ -112,10 +113,10 @@ def main():
     args = parser.parse_args()
     if args.mode == "configure":
         try:
-            configure(Path("/data/options.json"), Path("/tmp/openlist-ingress-auth.conf"))
+            configure(Path("/data/options.json"), Path("/tmp/openlist-ingress-auth.conf"), Path("/data/.openlist-runtime.json"))
         except Exception:
             # Remote exception details may contain a token or response content.
-            print("[ERROR] Cannot enable Ingress auto-login. Supervisor 2026.10.2+ must be reachable; otherwise set ingress_auto_login: false.", file=sys.stderr)
+            print("[ERROR] Cannot enable Ingress auto-login. Requires reachable Supervisor 2026.10.2+ and an active OpenList administrator. Set ingress_auto_login: false to complete initial setup or recover.", file=sys.stderr)
             return 1
     else:
         server = ThreadingHTTPServer(("127.0.0.1", 8098), handler(Path("/data/.openlist-runtime.json")))
