@@ -11,7 +11,8 @@ if [ ! -f "${OPTIONS_FILE}" ]; then
     OPTIONS_FILE=/dev/null
 fi
 PREVIOUS_CONFIG=/dev/null
-if [ -s "${RUNTIME_CONFIG}" ]; then
+if [ -s "${RUNTIME_CONFIG}" ] \
+    && jq --exit-status 'type == "object"' "${RUNTIME_CONFIG}" >/dev/null 2>&1; then
     PREVIOUS_CONFIG="${RUNTIME_CONFIG}"
 fi
 

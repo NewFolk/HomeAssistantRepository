@@ -59,6 +59,14 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(runtime["last_launched_version"], "v4.2.7")
         self.assertNotIn("token_expires_in", runtime)
 
+    def test_rebuild_partial_runtime_file(self):
+        self.runtime.write_text('{"truncated":')
+        result = self.prepare({"openlist": {"token_expires_in": 72}})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        effective = json.loads(self.runtime.read_text())
+        self.assertEqual(effective["jwt_secret"], self.original["jwt_secret"])
+        self.assertEqual(effective["token_expires_in"], 72)
+
     def test_reject_protected_fields_and_bad_structure(self):
         self.assertEqual(self.prepare({}).returncode, 0)
         previous = self.runtime.read_bytes()
