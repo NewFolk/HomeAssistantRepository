@@ -184,4 +184,4 @@ expect_startup_failure 'openlist.site_url is managed by the HA add-on'
 docker run --rm --platform linux/amd64 --entrypoint /bin/sh \
     --volume "${DATA_DIR}:/data" "${IMAGE}" -c \
     'printf "%s\n" '\''{"openlist":{"tasks":{"copy":{"task_persistant":"not-a-boolean"}}}}'\'' > /data/options.json'
-expect_startup_failure 'cannot unmarshal string'
+expect_startup_failure 'load config error'
