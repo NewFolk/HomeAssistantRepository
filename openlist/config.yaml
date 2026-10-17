@@ -10,7 +10,7 @@ panel_icon: mdi:folder-multiple
 arch:
   - amd64
 ingress: true
-panel_admin: true
+# Keep Supervisor's panel_admin=true default: required for Ingress auto-login.
 ingress_entry: openlist/
 ingress_stream: true
 backup: cold

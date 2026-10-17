@@ -20,6 +20,12 @@ SPEC.loader.exec_module(AUTH)
 
 
 class IngressAuthTests(unittest.TestCase):
+    def test_metadata_keeps_admin_only_panel_and_unpublished_native_port(self):
+        metadata = (ROOT / "openlist/config.yaml").read_text()
+        self.assertNotRegex(metadata, r"(?m)^panel_admin:\s*false\s*$")
+        self.assertRegex(metadata, r"(?m)^  5244/tcp: null$")
+        self.assertIn("  ingress_auto_login: false", metadata)
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
