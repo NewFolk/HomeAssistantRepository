@@ -17,6 +17,8 @@ MIN_SUPERVISOR = (2026, 10, 2)
 AUTH_CONFIG = """auth_request /_openlist_ingress_auth;
 auth_request_set $ingress_admin_token $upstream_http_x_openlist_token;
 proxy_set_header Authorization $ingress_admin_token;
+proxy_hide_header Cache-Control;
+add_header Cache-Control "no-store" always;
 """
 
 
@@ -94,10 +96,11 @@ def handler(config_path):
             except (OSError, ValueError, KeyError, TypeError, sqlite3.Error):
                 self.send_error(503, "OpenList Ingress authentication is unavailable")
                 return
-            self.send_response(204)
+            self.send_response(204 if self.path == "/authorize" else 200)
             if self.path == "/authorize":
                 self.send_header("X-OpenList-Token", token)
             self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", "0")
             self.end_headers()
 
     return Handler

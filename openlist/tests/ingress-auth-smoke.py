@@ -41,6 +41,17 @@ def healthy():
         if state["Health"]["Status"] == "healthy":
             return
         time.sleep(2)
+    print(json.dumps(state.get("Health")), file=sys.stderr)
+    # Fixture-only diagnosis: no database rows, options or credentials are printed.
+    diagnosis = """import importlib.util,pathlib
+s=importlib.util.spec_from_file_location('a','/usr/local/lib/openlist-addon/ingress-auth.py')
+a=importlib.util.module_from_spec(s);s.loader.exec_module(a)
+try:
+    a.admin_token(pathlib.Path('/data/.openlist-runtime.json'));print('Credential lookup: OK')
+except Exception as error:
+    print('Credential lookup:',type(error).__name__,str(error))
+"""
+    print(docker("exec", NAME, "python3", "-c", diagnosis, check=False), file=sys.stderr)
     raise AssertionError("Auth smoke container did not become healthy")
 
 
@@ -88,6 +99,7 @@ def main():
             assert me["code"] == 200 and me["data"]["role"] == 2
             assert "X-OpenList-Token" not in response["headers"]
             assert "Set-Cookie" not in response["headers"]
+            assert response["headers"]["Cache-Control"] == "no-store"
             # A real admin endpoint must work without an OpenList browser token.
             result = request(SUPERVISOR, 8099, "/openlist/api/admin/storage/list", trusted)
             assert json.loads(result["body"])["code"] == 200
@@ -95,8 +107,10 @@ def main():
             cross_site = {**trusted, "Origin": "https://attacker.example"}
             assert request(SUPERVISOR, 8099, "/openlist/api/admin/storage/create", cross_site, "POST")["status"] == 403
             same_site = {**trusted, "Origin": "http://172.30.32.3:8099"}
-            # Wrong API method, but not an auth failure: same-origin writes reach OpenList.
-            assert request(SUPERVISOR, 8099, "/openlist/api/me", same_site, "POST")["status"] != 403
+            # Native list API uses POST: same-origin browser requests must work.
+            same_site["Content-Type"] = "application/json"
+            result = request(SUPERVISOR, 8099, "/openlist/api/fs/list", same_site, "POST", {"path": "/"})
+            assert result["status"] == 200 and json.loads(result["body"])["code"] == 200
             assert request(SUPERVISOR, 8099, "/openlist/api/me")["status"] == 403
             assert request(NAME, 8099, "/openlist/api/me", trusted)["status"] == 403
             assert request(SUPERVISOR, 8099, "/_openlist_ingress_auth", trusted)["status"] == 404
