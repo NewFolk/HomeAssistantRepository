@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.0
+
+- Accept arbitrary OpenList config.json overrides in Home Assistant's YAML configuration under `openlist`.
+- Merge nested settings without overwriting the persistent source configuration, database, or generated keys.
+- Remove overrides cleanly when settings are removed from Home Assistant.
+- Reject malformed options and overrides of add-on-managed network/database fields with startup errors.
+- Test applying/removing task persistence settings across recreated containers.
+
 ## 1.2.2
 
 - Update OpenList from `v4.2.4` to `v4.2.7` with a pinned image digest.

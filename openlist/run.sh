@@ -4,7 +4,6 @@ set -eu
 OPENLIST_BIN="/opt/openlist/openlist"
 NGINX_TEMPLATE="/etc/nginx/openlist-ingress.conf.template"
 NGINX_CONFIG="/tmp/openlist-ingress.conf"
-OPENLIST_PATH="/openlist"
 OPENLIST_PID=""
 NGINX_PID=""
 
@@ -69,6 +68,17 @@ if [ ! -w /data ]; then
     exit 1
 fi
 
+# Validate options before any first-run initialization. An empty base is enough
+# for wrapper validation; upstream remains responsible for OpenList field types.
+if [ ! -f /data/config.json ]; then
+    printf '{}\n' > /tmp/openlist-empty-config.json
+    /usr/local/bin/openlist-prepare-config /tmp/openlist-empty-config.json
+    echo "[INFO] Initializing persistent OpenList configuration and administrator"
+    "${OPENLIST_BIN}" admin --data /data --log-std
+    chmod 600 /data/config.json
+fi
+/usr/local/bin/openlist-prepare-config
+
 INGRESS_ENTRY="$(resolve_ingress_entry)" || {
     echo "[ERROR] Could not determine the Home Assistant Ingress path" >&2
     exit 1
@@ -94,14 +104,12 @@ sed "s|%%INGRESS_ENTRY%%|${INGRESS_ENTRY}|g" \
     "${NGINX_TEMPLATE}" > "${NGINX_CONFIG}"
 nginx -t -c "${NGINX_CONFIG}"
 
-export SITE_URL="${OPENLIST_PATH}"
-
 echo "[INFO] Starting OpenList on port 5244"
 echo "[INFO] Starting Home Assistant Ingress proxy on port 8099"
 echo "[INFO] Home Assistant Ingress path configured"
 echo "[INFO] Persistent application data: /data"
 
-"${OPENLIST_BIN}" server --data /data --no-prefix --log-std &
+"${OPENLIST_BIN}" server --data /data --config /data/.openlist-runtime.json --no-prefix --log-std &
 OPENLIST_PID="$!"
 
 nginx -c "${NGINX_CONFIG}" -g 'daemon off;' &

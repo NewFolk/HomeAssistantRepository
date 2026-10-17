@@ -61,11 +61,11 @@ jobs:
 
       - name: Check shell syntax
         run: |
-          sh -n openlist/run.sh google_workspace_mcp/run.sh
+          sh -n openlist/run.sh openlist/prepare-config.sh google_workspace_mcp/run.sh
           bash -n openlist/tests/smoke.sh
 
       - name: Run ShellCheck
-        run: shellcheck openlist/run.sh google_workspace_mcp/run.sh openlist/tests/smoke.sh
+        run: shellcheck openlist/run.sh openlist/prepare-config.sh google_workspace_mcp/run.sh openlist/tests/smoke.sh
 
   openlist:
     name: Build and smoke test (${{ matrix.arch }})

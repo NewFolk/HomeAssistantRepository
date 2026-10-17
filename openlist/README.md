@@ -4,4 +4,6 @@ Unofficial Home Assistant add-on packaging for [OpenList](https://github.com/Ope
 
 See [the add-on documentation](DOCS.md) for installation, storage, networking, and backup guidance.
 
+OpenList file-based settings can be supplied through the add-on's Home Assistant Configuration tab as nested YAML under `openlist`.
+
 The OpenList icon and logo are used under their separate license; see [NOTICE.md](NOTICE.md).
