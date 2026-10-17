@@ -75,7 +75,7 @@ jobs:
           ref: ${{ inputs.ref || github.sha }}
           persist-credentials: false
 
-      - name: Test release updater guards
+      - name: Test release and configuration helpers
         run: python3 -m unittest discover -s scripts -p 'test_*.py'
 
       - name: Check shell syntax
