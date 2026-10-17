@@ -1,0 +1,105 @@
+name: Update OpenList
+
+on:
+  schedule:
+    - cron: "23 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: update-openlist
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      changed: ${{ steps.update.outputs.changed }}
+      sha: ${{ steps.publish.outputs.sha }}
+      base: ${{ steps.publish.outputs.base }}
+      pr: ${{ steps.publish.outputs.pr }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Synchronize the latest stable patch release
+        id: update
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/update_openlist.py
+      - name: Publish update PR
+        if: steps.update.outputs.changed == 'true'
+        id: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          UPSTREAM_TAG: ${{ steps.update.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="$(git rev-parse HEAD)"
+          branch="automation/openlist-${UPSTREAM_TAG}-${base:0:12}"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          gh auth setup-git
+          # Reuse a failed attempt without overwriting anyone's edits.
+          if gh api "repos/${GH_REPO}/git/ref/heads/${branch}" >/dev/null 2>&1; then
+            git fetch origin "${branch}"
+            git diff --exit-code FETCH_HEAD -- README.md openlist
+            sha="$(git rev-parse FETCH_HEAD)"
+          else
+            git checkout -b "${branch}"
+            git add README.md openlist/Dockerfile openlist/config.yaml openlist/README.md openlist/DOCS.md openlist/CHANGELOG.md
+            git diff --cached --check
+            git commit -m "Update OpenList to ${UPSTREAM_TAG}"
+            git push origin "HEAD:refs/heads/${branch}"
+            sha="$(git rev-parse HEAD)"
+          fi
+          pr="$(gh pr list --head "${branch}" --base main --state open --json number --jq '.[0].number // empty')"
+          if [ -z "${pr}" ]; then
+            printf 'Updates the pinned OpenList image and HA release metadata together.\n\nThe Update OpenList workflow runs the complete reusable CI against this exact commit before merging.\n\nValidation: %s/%s/actions/runs/%s\n' "${GITHUB_SERVER_URL}" "${GH_REPO}" "${GITHUB_RUN_ID}" > /tmp/update-body.md
+            url="$(gh pr create --head "${branch}" --base main --title "Update OpenList to ${UPSTREAM_TAG}" --body-file /tmp/update-body.md)"
+            pr="${url##*/}"
+          fi
+          echo "sha=${sha}" >> "${GITHUB_OUTPUT}"
+          echo "base=${base}" >> "${GITHUB_OUTPUT}"
+          echo "pr=${pr}" >> "${GITHUB_OUTPUT}"
+
+  validate:
+    needs: prepare
+    if: needs.prepare.outputs.changed == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/lint.yaml
+    with:
+      ref: ${{ needs.prepare.outputs.sha }}
+
+  merge:
+    needs: [prepare, validate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Merge only the tested commit against the unchanged main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TESTED_SHA: ${{ needs.prepare.outputs.sha }}
+          BASE_SHA: ${{ needs.prepare.outputs.base }}
+          PR_NUMBER: ${{ needs.prepare.outputs.pr }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/${GH_REPO}/git/ref/heads/main" --jq .object.sha)" = "${BASE_SHA}"
+          test "$(gh pr view "${PR_NUMBER}" --json baseRefName --jq .baseRefName)" = main
+          gh pr merge "${PR_NUMBER}" --squash --delete-branch --match-head-commit "${TESTED_SHA}"
+          echo "Merged tested OpenList update PR #${PR_NUMBER}" >> "${GITHUB_STEP_SUMMARY}"
