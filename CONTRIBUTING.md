@@ -23,3 +23,13 @@ upstream_version="$(sed -nE 's|^FROM .*openlist:(v[^@]+)@sha256:.*$|\1|p' openli
 ```
 
 The smoke test builds confidence that the container starts, becomes healthy, serves its direct UI, rewrites the simulated Home Assistant Ingress path for frontend assets and API calls, reports the expected upstream version, and reuses its persistent data. It does not replace testing inside Home Assistant.
+
+## Automated OpenList patch releases
+
+The `Update OpenList` workflow checks the latest stable upstream release daily at 07:23 UTC and can also be run manually in Actions. It pins the image digest, checks for a linux/amd64 image, increments the HA package patch version, and updates documentation and changelog together.
+
+Only newer releases in the same upstream major/minor series are automatic. Prereleases, downgrades, and major/minor upgrades are rejected. Other Dependabot PRs still require review; in particular, the current CI does not build or run Google Workspace MCP, so a green check does not validate a Python runtime upgrade.
+
+The workflow opens a PR, calls the complete CI workflow on its exact commit with read-only permissions, then merges only if validation succeeds and main has not changed. Failed runs leave the PR open. It uses GITHUB_TOKEN; GitHub does not trigger ordinary push/PR workflows for that token, so the explicit reusable CI call is the validation gate. No personal access token is needed. Repository Actions settings must allow GitHub Actions to create pull requests.
+
+Merging publishes an add-on update to the repository. Installation on a Home Assistant instance is controlled separately by that instance's update settings.
