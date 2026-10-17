@@ -26,6 +26,12 @@ show_diagnostics() {
     docker logs "${CONTAINER}" || true
 }
 
+source_checksum() {
+    docker run --rm --platform linux/amd64 --entrypoint sha256sum \
+        --volume "${DATA_DIR}:/data:ro" "${IMAGE}" /data/config.json \
+        | cut -d ' ' -f 1
+}
+
 wait_until_healthy() {
     local running
     local status
@@ -127,11 +133,55 @@ start_container
 test_ingress
 test -s "${DATA_DIR}/config.json"
 test -e "${DATA_DIR}/data.db"
-config_checksum="$(sha256sum "${DATA_DIR}/config.json" | cut -d ' ' -f 1)"
 
+expect_startup_failure() {
+    local expected_message="$1"
+    local stopped=false
+    local failure_log
+    docker rm --force "${CONTAINER}" >/dev/null
+    docker run --detach --name "${CONTAINER}" --platform linux/amd64 \
+        --env "INGRESS_ENTRY=${INGRESS_ENTRY}" \
+        --volume "${DATA_DIR}:/data" "${IMAGE}" >/dev/null
+    for _ in {1..30}; do
+        if [[ "$(docker inspect --format '{{.State.Running}}' "${CONTAINER}")" == false ]]; then
+            stopped=true
+            break
+        fi
+        sleep 1
+    done
+    test "${stopped}" = true
+    test "$(docker inspect --format '{{.State.ExitCode}}' "${CONTAINER}")" != 0
+    failure_log="$(docker logs "${CONTAINER}" 2>&1)"
+    grep --quiet --fixed-strings "${expected_message}" <<<"${failure_log}"
+    test "$(source_checksum)" = "${config_checksum}"
+}
+config_checksum="$(source_checksum)"
+
+# Reuse the populated data directory across recreated containers. HA options
+# must affect the running application, but not overwrite the persistent source.
+docker exec "${CONTAINER}" sh -c \
+    'printf "%s\n" '\''{"openlist":{"tasks":{"copy":{"task_persistant":true}},"token_expires_in":168}}'\'' > /data/options.json'
 docker rm --force "${CONTAINER}" >/dev/null
 start_container
 test_ingress
+docker exec "${CONTAINER}" jq --exit-status \
+    '.tasks.copy.task_persistant == true and .token_expires_in == 168' \
+    /data/.openlist-runtime.json >/dev/null
+test "$(source_checksum)" = "${config_checksum}"
 
-test "$(sha256sum "${DATA_DIR}/config.json" | cut -d ' ' -f 1)" = "${config_checksum}"
+docker exec "${CONTAINER}" sh -c 'printf "%s\n" '\''{"openlist":{}}'\'' > /data/options.json'
+docker rm --force "${CONTAINER}" >/dev/null
+start_container
+test_ingress
+docker exec "${CONTAINER}" jq --exit-status \
+    '.tasks.copy.task_persistant == false and .token_expires_in == 48' \
+    /data/.openlist-runtime.json >/dev/null
+test "$(source_checksum)" = "${config_checksum}"
 test -e "${DATA_DIR}/data.db"
+
+docker exec "${CONTAINER}" sh -c 'printf "%s\n" '\''{"openlist":{"site_url":"/wrong"}}'\'' > /data/options.json'
+expect_startup_failure 'openlist.site_url is managed by the HA add-on'
+docker run --rm --platform linux/amd64 --entrypoint /bin/sh \
+    --volume "${DATA_DIR}:/data" "${IMAGE}" -c \
+    'printf "%s\n" '\''{"openlist":{"tasks":{"copy":{"task_persistant":"not-a-boolean"}}}}'\'' > /data/options.json'
+expect_startup_failure 'load config error'

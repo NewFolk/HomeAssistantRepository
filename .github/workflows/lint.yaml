@@ -40,10 +40,29 @@ jobs:
           ref: ${{ inputs.ref || github.sha }}
           persist-credentials: false
 
-      - name: Run add-on linter
-        uses: frenck/action-addon-linter@b9cfd1bc62ba60d2c4fc96317b5f7ada5923f4a7 # v2.21.1
+      - name: Check out pinned add-on linter
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          path: ./${{ matrix.addon }}
+          repository: frenck/action-addon-linter
+          ref: b9cfd1bc62ba60d2c4fc96317b5f7ada5923f4a7 # v2.21.1
+          path: .ci/addon-linter
+          persist-credentials: false
+
+      - name: Run add-on linter with Supervisor-compatible schema
+        env:
+          ADDON: ${{ matrix.addon }}
+        run: |
+          # Upstream v2.21.1 incorrectly accepts only object schemas. Supervisor
+          # also supports false (free YAML options). Keep every other check.
+          jq '.properties.schema = {"anyOf": [.properties.schema, {"const": false}]}' \
+            .ci/addon-linter/src/config.schema.json > /tmp/addon-schema.json
+          cp /tmp/addon-schema.json .ci/addon-linter/src/config.schema.json
+          docker build --tag local/addon-linter .ci/addon-linter/src
+          docker run --rm \
+            --env "INPUT_PATH=/github/workspace/${ADDON}" \
+            --env INPUT_COMMUNITY=false \
+            --volume "${GITHUB_WORKSPACE}:/github/workspace:ro" \
+            local/addon-linter
 
   shell:
     name: Shell scripts
@@ -56,16 +75,16 @@ jobs:
           ref: ${{ inputs.ref || github.sha }}
           persist-credentials: false
 
-      - name: Test release updater guards
+      - name: Test release and configuration helpers
         run: python3 -m unittest discover -s scripts -p 'test_*.py'
 
       - name: Check shell syntax
         run: |
-          sh -n openlist/run.sh google_workspace_mcp/run.sh
+          sh -n openlist/run.sh openlist/prepare-config.sh google_workspace_mcp/run.sh
           bash -n openlist/tests/smoke.sh
 
       - name: Run ShellCheck
-        run: shellcheck openlist/run.sh google_workspace_mcp/run.sh openlist/tests/smoke.sh
+        run: shellcheck openlist/run.sh openlist/prepare-config.sh google_workspace_mcp/run.sh openlist/tests/smoke.sh
 
   openlist:
     name: Build and smoke test (${{ matrix.arch }})

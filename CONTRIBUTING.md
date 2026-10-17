@@ -15,8 +15,9 @@ Before opening a pull request, run the same checks used by CI when the required 
 
 ```bash
 git diff --check
-sh -n openlist/run.sh google_workspace_mcp/run.sh
-shellcheck openlist/run.sh google_workspace_mcp/run.sh openlist/tests/smoke.sh
+sh -n openlist/run.sh openlist/prepare-config.sh google_workspace_mcp/run.sh
+shellcheck openlist/run.sh openlist/prepare-config.sh google_workspace_mcp/run.sh openlist/tests/smoke.sh
+python3 -m unittest discover -s scripts -p 'test_*.py'
 docker build --platform linux/amd64 -t local/openlist-addon:test ./openlist
 upstream_version="$(sed -nE 's|^FROM .*openlist:(v[^@]+)@sha256:.*$|\1|p' openlist/Dockerfile)"
 ./openlist/tests/smoke.sh local/openlist-addon:test "${upstream_version}"
@@ -25,6 +26,8 @@ upstream_version="$(sed -nE 's|^FROM .*openlist:(v[^@]+)@sha256:.*$|\1|p' openli
 The smoke test builds confidence that the container starts, becomes healthy, serves its direct UI, rewrites the simulated Home Assistant Ingress path for frontend assets and API calls, reports the expected upstream version, and reuses its persistent data. It does not replace testing inside Home Assistant.
 
 ## Automated OpenList patch releases
+
+CI builds the add-on linter from pinned upstream commit `b9cfd1bc62ba60d2c4fc96317b5f7ada5923f4a7`. Its JSON schema receives one compatibility fix: accept the official Supervisor `schema: false` mode as well as object schemas. All other upstream lint checks remain enabled. Update this pinned checkout manually when adopting a new linter release, and remove the fix when upstream supports it.
 
 The `Update OpenList` workflow checks the latest stable upstream release daily at 07:23 UTC and can also be run manually in Actions. It pins the image digest, checks for a linux/amd64 image, increments the HA package patch version, and updates documentation and changelog together.
 
