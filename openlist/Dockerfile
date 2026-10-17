@@ -1,6 +1,6 @@
-FROM docker.io/openlistteam/openlist:v4.2.4@sha256:783471c2e72f6430d7a8fa21361ab5d1ce01d810b7418125d484c50b467c396c
+FROM docker.io/openlistteam/openlist:v4.2.7@sha256:11b490123d57f88c84ecda46285e1921869cf511da3e5bb4062f183e7e1200b7
 
-ARG BUILD_VERSION="1.2.1"
+ARG BUILD_VERSION="1.2.2"
 ARG BUILD_ARCH="amd64"
 
 USER root

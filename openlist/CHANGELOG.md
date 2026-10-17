@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.2
+
+- Update OpenList from `v4.2.4` to `v4.2.7` with a pinned image digest.
+
 ## 1.2.1
 
 - Add the official OpenList icon and logo to the Home Assistant add-on presentation.
