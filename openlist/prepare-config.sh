@@ -30,4 +30,4 @@ if ! jq --exit-status --slurpfile options "${normalized}" \
     exit 1
 fi
 mv "${temporary}" "${RUNTIME_CONFIG}"
-echo "[INFO] OpenList configuration prepared from persistent settings and HA overrides"
+echo "[INFO] HA OpenList YAML parsed; working configuration prepared (verification pending)"

@@ -115,6 +115,33 @@ class IngressAuthTests(unittest.TestCase):
             AUTH.admin_token(self.config)
         self.assertFalse(missing.exists())
 
+    def test_origin_policy_with_tls_termination_and_legacy_fallback(self):
+        headers = {"X-Ingress-Method": "POST", "X-Ingress-Proto": "http",
+                   "X-Ingress-Host": "homeassistant:8123", "Origin": "https://ha.example"}
+        self.assertEqual(AUTH.origin_rejection(headers), "origin_mismatch")
+        self.assertIsNone(AUTH.origin_rejection({**headers, "X-Ingress-Fetch-Site": "same-origin"}))
+        for site in ("cross-site", "same-site", "none", "invalid", "same-origin, cross-site"):
+            self.assertIsNotNone(AUTH.origin_rejection({**headers, "X-Ingress-Fetch-Site": site}))
+        for origin in (None, "", "null", "https://ha.example/path", "https://user:secret@ha.example", "https://ha.example:bad"):
+            with self.subTest(origin=origin):
+                self.assertIsNotNone(AUTH.origin_rejection({**headers, "Origin": origin, "X-Ingress-Fetch-Site": "same-origin"}))
+        local = {**headers, "Origin": "http://homeassistant:8123"}
+        self.assertIsNone(AUTH.origin_rejection(local))
+        self.assertIsNone(AUTH.origin_rejection({**local, "X-Ingress-Fetch-Site": "invalid"}))
+        self.assertIsNone(AUTH.origin_rejection({**headers, "X-Ingress-Proto": "https",
+                                               "X-Ingress-Host": "HA.EXAMPLE:443"}))
+        for method in ("GET", "HEAD", "OPTIONS"):
+            self.assertIsNone(AUTH.origin_rejection({"X-Ingress-Method": method}))
+        for method in ("POST", "PUT", "PATCH", "DELETE"):
+            self.assertEqual(AUTH.origin_rejection({"X-Ingress-Method": method}), "missing_origin")
+        # A same-site subdomain is not same-origin, even with matching Origin.
+        self.assertEqual(AUTH.origin_rejection({**local, "X-Ingress-Fetch-Site": "same-site"}), "cross_origin_fetch")
+
+    def test_nginx_uses_browser_metadata_not_spoofable_adapter_header(self):
+        template = (ROOT / "openlist/nginx.conf").read_text()
+        self.assertIn("proxy_set_header X-Ingress-Fetch-Site $http_sec_fetch_site;", template)
+        self.assertNotIn("$http_x_ingress_fetch_site", template)
+
     def test_header_boundary_and_no_token_body(self):
         server = ThreadingHTTPServer(("127.0.0.1", 0), AUTH.handler(self.config))
         worker = threading.Thread(target=server.serve_forever, daemon=True)
@@ -123,7 +150,7 @@ class IngressAuthTests(unittest.TestCase):
         self.addCleanup(worker.join)
         self.addCleanup(server.shutdown)
         url = f"http://127.0.0.1:{server.server_port}/authorize"
-        for headers in ({}, {"X-Ingress-Peer": "127.0.0.1", "X-Remote-User-Id": "fixture"},
+        for headers in ({}, {"X-Ingress-Peer": "127.0.0.1", "X-Remote-User-Id": "fixture", "X-Ingress-Fetch-Site": "same-origin"},
                         {"X-Ingress-Peer": "172.30.32.2"}):
             with self.assertRaises(HTTPError) as result:
                 urlopen(Request(url, headers=headers))
@@ -147,6 +174,14 @@ class IngressAuthTests(unittest.TestCase):
         headers["Origin"] = "https://ha.example"
         with urlopen(Request(url, headers=headers)) as response:
             self.assertEqual(response.status, 204)
+        headers.update({"Origin": "https://public.example", "X-Ingress-Fetch-Site": "same-origin"})
+        with urlopen(Request(url, headers=headers)) as response:
+            self.assertEqual(response.status, 204)
+        headers["X-Ingress-Fetch-Site"] = "cross-site"
+        with self.assertRaises(HTTPError) as result:
+            urlopen(Request(url, headers=headers))
+        self.assertEqual(result.exception.code, 403)
+        result.exception.close()
 
 
 if __name__ == "__main__":

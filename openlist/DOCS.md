@@ -36,12 +36,16 @@ Complete OpenList's initial setup first. Save, restart the add-on, and select **
 Security boundaries:
 
 - Only Home Assistant administrators can use this admin-only Ingress panel. Supervisor 2026.10.2 introduced the required [server-side `panel_admin` enforcement](https://github.com/home-assistant/supervisor/pull/7308); hiding a menu entry on older versions was not sufficient. Startup fails with a log message if auto-login is requested but the minimum stable Supervisor version cannot be verified. Update Supervisor or disable the option to recover.
-- The proxy accepts automatic credentials only on requests from Supervisor's internal IP with its authenticated user header. Missing identity, direct/spoofed requests and cross-origin browser requests are rejected. State-changing browser requests must provide a matching `Origin` header.
+- The proxy accepts automatic credentials only on requests from Supervisor's internal IP with its authenticated user header. Missing identity, direct/spoofed requests and cross-origin browser requests are rejected. State-changing browser requests must provide a valid `Origin`. Browser-controlled `Sec-Fetch-Site: same-origin` confirms same-origin access even when a reverse proxy changes the internal host or scheme; without that metadata, Origin must match the forwarded host/scheme. `same-site` is not sufficient.
 - The existing OpenList admin API token is read from SQLite in read-only mode and attached to the internal upstream request. Auto-login does not return a new login token/cookie to the browser, patch frontend JavaScript, reset passwords or change the database. Token rotation is picked up on the next request. OpenList's own administration pages can still expose secrets to administrators as usual.
 - This intentionally bypasses OpenList's password and second factor **through Ingress only**. Protect your Home Assistant administrator accounts and use HA MFA. Everyone using this route shares the same OpenList administrator permissions; actions are not separated into individual OpenList accounts. Signing out inside OpenList does not disable auto-login. HA/Supervisor control the Ingress session lifetime and revocation; verify logout behavior on your installation. To turn off auto-login reliably, set the option to `false` and restart the add-on.
 - Port `5244/tcp` remains **unpublished by default**. If you explicitly publish it, it still uses normal OpenList authentication; HA headers do not grant access there. The feature does not enable guest access or create new filesystem mounts. Never expose the internal proxy/helper ports `8099`/`8098` directly.
 
 The feature is covered by helper and real-container tests, but still requires validation on your Home Assistant installation, including an HA administrator, a non-admin account and logout behavior. Keep a backup before updating. No Home Assistant Core API access or Supervisor administrator role is granted to the add-on.
+
+HTTPS termination (for example, at a router or reverse proxy) does not require entering the external HA URL again in this add-on. The proxy must preserve the browser's `Sec-Fetch-Site` header, or correctly forward the public host/scheme for the strict Origin fallback. We do not fetch HA's configured Internet URL or disable CSRF checks. The browser sets Fetch Metadata; scripts cannot forge it, but non-browser clients and proxies can, so the trusted Supervisor route and authenticated HA identity remain essential.
+
+If local HA access works but external HTTPS returns 403, look for `Ingress auto-login request rejected` in the add-on log. Reasons such as `origin_mismatch`, `missing_origin` or `cross_origin_fetch` help distinguish proxy/browser problems without logging addresses, identities or tokens. Startup also explicitly logs whether auto-login is enabled or disabled. Do not expose the internal ports to work around a rejection.
 
 ## OpenList settings in Home Assistant
 
@@ -68,7 +72,28 @@ openlist: |
 
 The `|` is required for multiline YAML: HA stores the entire block as a string, and the add-on safely parses it on startup. A bare `openlist:` mapping or `openlist: {}` is not supported by HA's schema; use the block above or a quoted JSON string, for example `openlist: '{"token_expires_in":168}'`. To remove all overrides, use `openlist: "{}"` or an empty string.
 
-Save and restart the add-on, then reopen Configuration to check the saved values. Numbers and booleans **inside the block** retain their types after parsing; use `true`, not `"true"`. Only specify fields you want to override. Nested objects merge recursively, while arrays replace the entire original array. A parameter must be supported by the installed OpenList version; there is no add-on allowlist of general OpenList settings. OpenList can ignore unknown keys, so check spelling against its documentation. Invalid inner YAML or unsupported value types stop startup with a concise log error; configuration values are not printed.
+Save and restart the add-on, then reopen Configuration to check the saved values. Numbers and booleans **inside the block** retain their types after parsing; use `true`, not `"true"`. Only specify fields you want to override. Nested objects merge recursively, while arrays replace the entire original array. A parameter must be supported by the installed OpenList version; there is no add-on allowlist of general OpenList settings. Invalid inner YAML, duplicate YAML keys or unsupported value types stop startup with a concise log error; configuration values are not printed.
+
+### Checking that settings were accepted
+
+The initial `HA OpenList YAML parsed; working configuration prepared (verification pending)` message only confirms parsing and merging. The add-on waits for OpenList to read and rewrite its typed working configuration, then checks **every path supplied in HA**, including nested fields and array entries, before starting Ingress. Unknown keys discarded by OpenList and values/types that did not survive the round trip fail startup.
+
+For the seven settings in the example above, expect messages including:
+
+```text
+[INFO] Verified HA override after OpenList load: openlist.tasks.copy.task_persistant
+[INFO] All 7 HA OpenList override paths verified; values omitted
+```
+
+With only the five persistence flags, the total is five. An empty block logs `No HA OpenList overrides configured`. Values (including passwords, tokens and paths) are intentionally not printed; verification means the resulting value and type matched what was supplied in HA.
+
+For example, misspelling `task_persistant` as `task_persistent` produces:
+
+```text
+[ERROR] HA override not accepted by OpenList: openlist.tasks.copy.task_persistent (unknown or discarded field); check spelling, nesting and type
+```
+
+Correct or remove the reported setting in HA Configuration and restart; no reinstall or data deletion is needed. This verifies recognition and file-based values, not every setting's semantic usefulness, external service availability or task execution. Existing ignored typos that previously appeared harmless will now prevent startup until corrected.
 
 ### Upgrading from add-on 1.3.0 or 1.4.0
 

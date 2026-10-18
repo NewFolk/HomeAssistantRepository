@@ -147,6 +147,79 @@ cors:
                 self.assertNotIn("secret-value", result.stderr + result.stdout)
                 self.assertEqual(self.runtime.read_bytes(), previous)
 
+    def verify(self, options, runtime):
+        self.options.write_text(json.dumps(options))
+        self.runtime.write_text(json.dumps(runtime))
+        return subprocess.run([
+            "python3", str(ROOT / "openlist/parse-options.py"), str(self.options),
+            "--verify", str(self.runtime),
+        ], capture_output=True, text=True)
+
+    def test_readback_starts_from_supplied_paths_and_omits_values(self):
+        options = {"openlist": """tasks:
+  copy:
+    task_persistant: true
+jwt_secret: secret-value
+log:
+  filter:
+    filters:
+      - path: /private-value
+"""}
+        runtime = {"tasks": {"copy": {"workers": 5, "task_persistant": True}},
+                   "jwt_secret": "secret-value", "unrelated": "default",
+                   "log": {"filter": {"filters": [{"path": "/private-value", "cidr": "", "method": ""}]}}}
+        result = self.verify(options, runtime)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("openlist.tasks.copy.task_persistant", result.stdout)
+        self.assertIn("openlist.log.filter.filters[0].path", result.stdout)
+        self.assertIn("All 3 HA OpenList override paths verified", result.stdout)
+        for value in ("secret-value", "/private-value", "unrelated"):
+            self.assertNotIn(value, result.stdout + result.stderr)
+
+    def test_readback_rejects_unknown_keys_including_empty_sections(self):
+        for value, path in (("tasks:\n  copy:\n    task_persistent: true", "openlist.tasks.copy.task_persistent"),
+                            ("taskz: {}", "openlist.taskz"),
+                            ("log:\n  filter:\n    filters:\n      - typo: secret-value", "openlist.log.filter.filters[0].typo")):
+            with self.subTest(path=path):
+                runtime = {"tasks": {"copy": {"task_persistant": False}},
+                           "log": {"filter": {"filters": [{"path": "", "method": "", "cidr": ""}]}}}
+                result = self.verify({"openlist": value}, runtime)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(path, result.stderr)
+                self.assertIn("unknown or discarded field", result.stderr)
+                self.assertNotIn("secret-value", result.stdout + result.stderr)
+                self.assertNotIn("Verified HA override", result.stdout)
+
+    def test_readback_checks_types_values_arrays_and_empty_input(self):
+        for wanted, actual in ((True, 1), (False, 0), (72, 48), ("72", 72), (None, False),
+                               (["a"], ["a", "b"]), ({}, [])):
+            with self.subTest(wanted=wanted, actual=actual):
+                result = self.verify({"openlist": {"field": wanted}}, {"field": actual})
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("openlist.field", result.stderr)
+        result = self.verify({"openlist": "{}"}, {"unrelated": "default"})
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("No HA OpenList overrides configured", result.stdout)
+        result = self.verify({"openlist": {"cors": {"allow_origins": []}}}, {"cors": {"allow_origins": []}})
+        self.assertEqual(result.returncode, 0)
+
+    def test_readback_sanitizes_untrusted_field_names(self):
+        result = self.verify({"openlist": {"https://secret-value": "private"}}, {})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("<invalid-key>", result.stderr)
+        self.assertNotIn("secret-value", result.stdout + result.stderr)
+        self.assertNotIn("private", result.stdout + result.stderr)
+
+    def test_duplicate_yaml_keys_fail_without_leaking_values(self):
+        result = self.prepare({"openlist": "token_expires_in: secret-value\ntoken_expires_in: 72"})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("line 2", result.stderr)
+        self.assertNotIn("secret-value", result.stdout + result.stderr)
+        self.assertFalse(self.runtime.exists())
+        # Explicit overrides of YAML merge defaults are not duplicate keys.
+        result = self.prepare({"openlist": "tasks:\n  copy:\n    <<: {workers: 5}\n    workers: 2"})
+        self.assertEqual(result.returncode, 0, result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

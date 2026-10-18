@@ -31,6 +31,8 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 0' INT TERM
 
+echo "[INFO] OpenList Home Assistant add-on ${OPENLIST_ADDON_VERSION:-unknown}"
+
 resolve_ingress_entry() {
     if [ -n "${INGRESS_ENTRY:-}" ]; then
         printf '%s' "${INGRESS_ENTRY}"
@@ -113,19 +115,39 @@ sed "s|%%INGRESS_ENTRY%%|${INGRESS_ENTRY}|g" \
 nginx -t -c "${NGINX_CONFIG}"
 
 echo "[INFO] Starting OpenList on port 5244"
-echo "[INFO] Starting Home Assistant Ingress proxy on port 8099"
 echo "[INFO] Home Assistant Ingress path configured"
 echo "[INFO] Persistent application data: /data"
 
 "${OPENLIST_BIN}" server --data /data --config /data/.openlist-runtime.json --no-prefix --log-std &
 OPENLIST_PID="$!"
 
+# InitConfig rewrites the working JSON using upstream's typed configuration,
+# dropping unknown fields. Do not check our own pre-merge output as proof that
+# OpenList recognized an override. Delay Ingress until upstream is ready.
+while ! wget --quiet --tries=1 --timeout=1 --output-document=/dev/null \
+    http://127.0.0.1:5244/openlist/ping; do
+    if ! kill -0 "${OPENLIST_PID}" >/dev/null 2>&1; then
+        echo "[ERROR] OpenList stopped before HA override verification" >&2
+        exit 1
+    fi
+    sleep 1
+done
+verification_options=/data/options.json
+if [ ! -f "${verification_options}" ]; then
+    verification_options=/dev/null
+fi
+python3 /usr/local/lib/openlist-addon/parse-options.py "${verification_options}" \
+    --verify /data/.openlist-runtime.json
+
 if [ "${ingress_auto_login}" = true ]; then
     echo "[INFO] Ingress auto-login enabled for Home Assistant administrators only"
     python3 /usr/local/lib/openlist-addon/ingress-auth.py serve &
     AUTH_PID="$!"
+else
+    echo "[INFO] Ingress auto-login disabled; using native OpenList authentication"
 fi
 
+echo "[INFO] Starting Home Assistant Ingress proxy on port 8099"
 nginx -c "${NGINX_CONFIG}" -g 'daemon off;' &
 NGINX_PID="$!"
 

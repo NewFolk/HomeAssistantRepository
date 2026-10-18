@@ -125,12 +125,32 @@ def main():
             same_site["Content-Type"] = "application/json"
             rotated = request(SUPERVISOR, 8099, "/openlist/api/admin/setting/reset_token", same_site, "POST", {})
             assert rotated["status"] == 200 and json.loads(rotated["body"])["code"] == 200
+            # Browser sees public HTTPS, while HA/proxy headers describe internal
+            # HTTP. Same-origin Fetch Metadata must make a real write work.
+            browser = {**trusted, "Origin": "https://ha.example",
+                       "X-Forwarded-Host": "homeassistant:8123", "X-Forwarded-Proto": "http",
+                       "Content-Type": "application/json"}
+            endpoint = "/openlist/api/admin/setting/reset_token"
+            assert request(SUPERVISOR, 8099, endpoint, browser, "POST", {})["status"] == 403
+            forged = {**browser, "X-Ingress-Fetch-Site": "same-origin"}
+            assert request(SUPERVISOR, 8099, endpoint, forged, "POST", {})["status"] == 403
+            browser["Sec-Fetch-Site"] = "same-origin"
+            result = request(SUPERVISOR, 8099, endpoint, browser, "POST", {})
+            assert result["status"] == 200 and json.loads(result["body"])["code"] == 200
+            for site in ("cross-site", "same-site", "none", "invalid"):
+                rejected = {**browser, "Sec-Fetch-Site": site}
+                assert request(SUPERVISOR, 8099, endpoint, rejected, "POST", {})["status"] == 403
+            missing_origin = {key: value for key, value in browser.items() if key != "Origin"}
+            assert request(SUPERVISOR, 8099, endpoint, missing_origin, "POST", {})["status"] == 403
+            assert request(NAME, 8099, endpoint, browser, "POST", {})["status"] == 403
             assert json.loads(request(SUPERVISOR, 8099, "/openlist/api/me", trusted)["body"])["data"]["role"] == 2
             assert request(SUPERVISOR, 8099, "/openlist/api/me")["status"] == 403
             assert request(NAME, 8099, "/openlist/api/me", trusted)["status"] == 403
             assert request(SUPERVISOR, 8099, "/_openlist_ingress_auth", trusted)["status"] == 404
             assert request(SUPERVISOR, 8099, "/_openlist_health", trusted)["status"] == 403
             direct = request(SUPERVISOR, 5244, "/openlist/api/me", trusted)
+            assert json.loads(direct["body"])["code"] != 200
+            direct = request(SUPERVISOR, 5244, "/openlist/api/me", browser)
             assert json.loads(direct["body"])["code"] != 200
             # The default disabled guest must not become administrator.
             direct = request(SUPERVISOR, 5244, "/openlist/api/me")
