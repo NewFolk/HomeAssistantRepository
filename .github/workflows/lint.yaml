@@ -48,15 +48,10 @@ jobs:
           path: .ci/addon-linter
           persist-credentials: false
 
-      - name: Run add-on linter with Supervisor-compatible schema
+      - name: Run unmodified add-on linter
         env:
           ADDON: ${{ matrix.addon }}
         run: |
-          # Upstream v2.21.1 incorrectly accepts only object schemas. Supervisor
-          # also supports false (free YAML options). Keep every other check.
-          jq '.properties.schema = {"anyOf": [.properties.schema, {"const": false}]}' \
-            .ci/addon-linter/src/config.schema.json > /tmp/addon-schema.json
-          cp /tmp/addon-schema.json .ci/addon-linter/src/config.schema.json
           docker build --tag local/addon-linter .ci/addon-linter/src
           docker run --rm \
             --env "INPUT_PATH=/github/workspace/${ADDON}" \
@@ -75,8 +70,15 @@ jobs:
           ref: ${{ inputs.ref || github.sha }}
           persist-credentials: false
 
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.14"
+
       - name: Test release and configuration helpers
-        run: python3 -m unittest discover -s scripts -p 'test_*.py'
+        run: |
+          python3 -m pip install -r openlist/tests/requirements.txt
+          python3 -m unittest discover -s scripts -p 'test_*.py'
 
       - name: Check shell syntax
         run: |
@@ -116,6 +118,22 @@ jobs:
           echo "addon=${addon_version}" >> "${GITHUB_OUTPUT}"
           echo "upstream=${upstream_version}" >> "${GITHUB_OUTPUT}"
 
+      - name: Check out pinned Supervisor validation source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: home-assistant/supervisor
+          ref: c9e000812b7131fa1f1b72b483555083929d7f83 # 2026.10.2
+          path: .ci/supervisor
+          persist-credentials: false
+
+      - name: Set up Supervisor-compatible Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.14"
+
+      - name: Install validation test dependencies
+        run: python3 -m pip install -r openlist/tests/requirements.txt
+
       - name: Build image
         run: |
           docker build \
@@ -127,6 +145,9 @@ jobs:
 
       - name: Run smoke and persistence tests
         run: ./openlist/tests/smoke.sh local/openlist-addon:test "${{ steps.versions.outputs.upstream }}"
+
+      - name: Test Supervisor option save and container restart contract
+        run: python3 openlist/tests/supervisor-options.py .ci/supervisor local/openlist-addon:test
 
       - name: Test Ingress admin authentication boundaries
         run: python3 openlist/tests/ingress-auth-smoke.py local/openlist-addon:test

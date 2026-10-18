@@ -28,6 +28,7 @@ class ConfigTests(unittest.TestCase):
         return subprocess.run([
             "sh", str(ROOT / "openlist/prepare-config.sh"), str(self.base),
             str(self.options), str(self.runtime), str(ROOT / "openlist/config-overrides.jq"),
+            str(ROOT / "openlist/parse-options.py"),
         ], capture_output=True, text=True)
 
     def test_deep_merge_types_arrays_and_removal(self):
@@ -97,13 +98,54 @@ class ConfigTests(unittest.TestCase):
     def test_malformed_json_and_empty_base(self):
         self.options.write_text('{"openlist":')
         command = ["sh", str(ROOT / "openlist/prepare-config.sh"), str(self.base),
-                   str(self.options), str(self.runtime), str(ROOT / "openlist/config-overrides.jq")]
+                   str(self.options), str(self.runtime), str(ROOT / "openlist/config-overrides.jq"),
+                   str(ROOT / "openlist/parse-options.py")]
         self.assertNotEqual(subprocess.run(command, capture_output=True).returncode, 0)
         self.assertFalse(self.runtime.exists())
         self.options.write_text("{}")
         self.base.write_text("")
         self.assertNotEqual(subprocess.run(command, capture_output=True).returncode, 0)
         self.assertFalse(self.runtime.exists())
+
+    def test_yaml_block_types_restart_and_source_preservation(self):
+        options = {"ingress_auto_login": False, "openlist": """tasks:
+  copy:
+    task_persistant: true
+token_expires_in: 168
+cors:
+  allow_origins: [replacement]
+"""}
+        for _ in range(2):
+            result = self.prepare(options)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            runtime = json.loads(self.runtime.read_text())
+            self.assertIs(runtime["tasks"]["copy"]["task_persistant"], True)
+            self.assertEqual(runtime["tasks"]["copy"]["workers"], 5)
+            self.assertEqual(runtime["token_expires_in"], 168)
+            self.assertEqual(runtime["cors"]["allow_origins"], ["replacement"])
+            self.assertEqual(json.loads(self.options.read_text()), options)
+            self.assertEqual(json.loads(self.base.read_text()), self.original)
+        self.assertEqual(self.prepare({"openlist": "{}"}).returncode, 0)
+        self.assertFalse(json.loads(self.runtime.read_text())["tasks"]["copy"]["task_persistant"])
+
+    def test_json_string_and_blank_string(self):
+        result = self.prepare({"openlist": '{"token_expires_in":72}'})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(self.runtime.read_text())["token_expires_in"], 72)
+        self.assertEqual(self.prepare({"openlist": ""}).returncode, 0)
+
+    def test_bad_yaml_does_not_leak_values_or_replace_runtime(self):
+        self.assertEqual(self.prepare({"openlist": "{}"}).returncode, 0)
+        previous = self.runtime.read_bytes()
+        for value in ("secret-value: [", "- secret-value", "secret-value", "null",
+                      "secret-value: !!python/object:os.system {}", "secret-value: .nan",
+                      "secret-value: 2026-10-18"):
+            with self.subTest(value=value):
+                result = self.prepare({"openlist": value})
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("[ERROR]", result.stderr)
+                self.assertNotIn("secret-value", result.stderr + result.stdout)
+                self.assertEqual(self.runtime.read_bytes(), previous)
 
 
 if __name__ == "__main__":

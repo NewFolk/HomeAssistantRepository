@@ -1,0 +1,10 @@
+configuration:
+  ingress_auto_login:
+    name: Ingress administrator auto-login
+    description: Requires Supervisor 2026.10.2+ and an initialized OpenList administrator. Does not enable the direct port.
+  openlist:
+    name: Advanced OpenList settings (YAML or JSON text)
+    description: >-
+      For multiline settings select Edit in YAML and use "openlist: |".
+      Keep upstream setting names inside the block. Use the string "{}" to
+      remove overrides. Save and restart to apply.

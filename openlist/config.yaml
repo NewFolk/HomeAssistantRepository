@@ -1,5 +1,5 @@
 name: OpenList
-version: "1.4.0"
+version: "1.4.1"
 slug: openlist
 description: A file-listing and sharing platform with support for many storage providers.
 url: https://github.com/NewFolk/HomeAssistantRepository/tree/main/openlist
@@ -25,5 +25,7 @@ map:
     read_only: true
 options:
   ingress_auto_login: false
-  openlist: {}
-schema: false
+  openlist: "{}"
+schema:
+  ingress_auto_login: bool
+  openlist: str

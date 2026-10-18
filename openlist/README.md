@@ -4,7 +4,7 @@ Unofficial Home Assistant add-on packaging for [OpenList](https://github.com/Ope
 
 See [the add-on documentation](DOCS.md) for installation, storage, networking, and backup guidance.
 
-OpenList file-based settings can be supplied through the add-on's Home Assistant Configuration tab as nested YAML under `openlist`.
+OpenList file-based settings can be supplied in the Home Assistant Configuration tab as a YAML text block starting with `openlist: |`. Keep that vertical bar: HA stores a string, which the add-on parses into native settings. See [configuration and migration guidance](DOCS.md#openlist-settings-in-home-assistant).
 
 Optional `ingress_auto_login: true` signs Home Assistant administrators into the existing OpenList administrator account through Ingress. It requires Supervisor 2026.10.2+, is disabled by default, and does not enable the optional direct port or remove its normal authentication. See [security boundaries and setup](DOCS.md#optional-administrator-auto-login-through-ingress).
 
