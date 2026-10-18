@@ -167,8 +167,9 @@ test_ingress
 docker exec "${CONTAINER}" jq --exit-status \
     '([.tasks.copy, .tasks.move, .tasks.download, .tasks.transfer, .tasks.decompress] | all(.task_persistant == true)) and .token_expires_in == 168' \
     /data/.openlist-runtime.json >/dev/null
-docker logs "${CONTAINER}" 2>&1 | grep --quiet --fixed-strings \
-    'All 7 HA OpenList override paths verified'
+# Drain the log stream: grep -q can close early and SIGPIPE docker under pipefail.
+docker logs "${CONTAINER}" 2>&1 | grep --fixed-strings \
+    'All 7 HA OpenList override paths verified' >/dev/null
 test "$(source_checksum)" = "${config_checksum}"
 
 docker exec "${CONTAINER}" sh -c 'printf "%s\n" '\''{"openlist":"{}"}'\'' > /data/options.json'
