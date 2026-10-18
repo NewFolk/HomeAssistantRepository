@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.4.3
+
+- Follow Home Assistant's standard Ingress authentication boundary instead of maintaining an extra Origin/Fetch Metadata policy in the add-on.
+- Remove the custom browser-origin checks and header adapter that rejected authenticated requests when a reverse proxy stripped Origin.
+- Keep Supervisor-only automatic credentials, trusted HA identity, the minimum Supervisor/admin-panel enforcement, server-side OpenList tokens and normal direct-port authentication.
+- Test real admin writes and filesystem access with Origin/Fetch Metadata absent, plus rejection of a separate untrusted container with forged headers.
+- Preserve HA YAML read-back validation, configuration, passwords, database, mounts and unpublished port defaults.
+
 ## 1.4.2
 
 - Verify every HA-supplied OpenList path and value against the working configuration after OpenList has loaded and normalized it, before opening Ingress.

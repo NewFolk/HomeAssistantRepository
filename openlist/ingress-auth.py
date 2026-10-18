@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Keep Ingress credentials server-side; never mint browser tokens or change users."""
+"""Bridge HA-authenticated Ingress to OpenList; never mint browser sessions."""
 
 import argparse
 from contextlib import closing
@@ -11,7 +11,6 @@ import re
 import sqlite3
 import sys
 from urllib.request import Request, urlopen
-from urllib.parse import urlsplit
 
 
 MIN_SUPERVISOR = (2026, 10, 2)
@@ -70,50 +69,6 @@ def admin_token(config_path):
     return row[0]
 
 
-def origin_tuple(value):
-    """Compare browser origins, not raw strings with optional default ports."""
-    try:
-        parsed = urlsplit(value)
-        if (parsed.scheme not in ("http", "https") or not parsed.hostname
-                or parsed.username is not None or parsed.password is not None
-                or parsed.path or parsed.query or parsed.fragment):
-            return None
-        port = parsed.port
-        if port is None:
-            port = 443 if parsed.scheme == "https" else 80
-        return parsed.scheme, parsed.hostname, port
-    except ValueError:
-        return None
-
-
-def origin_rejection(headers):
-    """Browser Fetch Metadata survives TLS termination without a URL allowlist.
-
-    Scripts cannot forge Sec-Fetch-Site. nginx must pass the actual browser
-    header, not a client-provided X-Ingress-Fetch-Site. This is CSRF evidence,
-    never a replacement for Supervisor peer, identity and panel checks.
-    """
-    site = headers.get("X-Ingress-Fetch-Site")
-    if site in ("cross-site", "same-site"):
-        return "cross_origin_fetch"
-    origin = headers.get("Origin")
-    unsafe = headers.get("X-Ingress-Method") not in ("GET", "HEAD", "OPTIONS")
-    if unsafe and not origin:
-        return "missing_origin"
-    if origin:
-        actual = origin_tuple(origin)
-        if actual is None:
-            return "invalid_origin"
-        # The browser evaluates the public target before proxy rewrites; scheme,
-        # hostname and port can differ from the internal HTTP transport here.
-        if site == "same-origin":
-            return None
-        expected = origin_tuple(f"{headers.get('X-Ingress-Proto')}://{headers.get('X-Ingress-Host')}")
-        if expected is None or actual != expected:
-            return "origin_mismatch"
-    return None
-
-
 def handler(config_path):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_args):
@@ -131,12 +86,9 @@ def handler(config_path):
                 print("[WARN] Ingress auto-login request rejected: untrusted_peer_or_missing_identity", file=sys.stderr, flush=True)
                 self.send_error(403)
                 return
-            if self.path == "/authorize":
-                reason = origin_rejection(self.headers)
-                if reason:
-                    print(f"[WARN] Ingress auto-login request rejected: {reason}", file=sys.stderr, flush=True)
-                    self.send_error(403, "Ingress writes require a same-origin browser request")
-                    return
+            # HA/Supervisor owns browser-session authentication and panel_admin.
+            # Only adapt requests from that authenticated Ingress boundary; do
+            # not add a second policy based on browser/proxy Origin headers.
             try:
                 token = admin_token(config_path)
             except (OSError, ValueError, KeyError, TypeError, sqlite3.Error):

@@ -13,6 +13,7 @@ IMAGE = sys.argv[1]
 NAME = f"openlist-auth-{os.getpid()}"
 NETWORK = NAME + "-net"
 SUPERVISOR = NAME + "-supervisor"
+UNTRUSTED = NAME + "-untrusted"
 TESTS = Path(__file__).resolve().parent
 
 
@@ -66,7 +67,7 @@ def expect_stopped(message):
 
 
 def request(origin, port, path, headers=None, method="GET", body=None):
-    host = "172.30.32.3" if origin == SUPERVISOR else "127.0.0.1"
+    host = "127.0.0.1" if origin == NAME else "172.30.32.3"
     code = """import json,sys,urllib.request,urllib.error
 try:
     body=None if sys.argv[4]=='null' else sys.argv[4].encode()
@@ -93,6 +94,8 @@ def main():
             docker("run", "-d", "--name", SUPERVISOR, "--network", NETWORK, "--ip", "172.30.32.2",
                    "--entrypoint", "python3", "-v", f"{TESTS}:/tests:ro", "-v", f"{fixtures}:/fixtures:ro",
                    IMAGE, "/tests/mock-supervisor.py")
+            docker("run", "-d", "--name", UNTRUSTED, "--network", NETWORK, "--ip", "172.30.32.4",
+                   "--entrypoint", "python3", IMAGE, "-c", "import signal; signal.pause()")
             write_options(data, {"ingress_auto_login": True, "openlist": "{}"})
             start(data)
             expect_stopped("active OpenList administrator")
@@ -117,32 +120,28 @@ def main():
             # A real admin endpoint must work without an OpenList browser token.
             result = request(SUPERVISOR, 8099, "/openlist/api/admin/storage/list", trusted)
             assert json.loads(result["body"])["code"] == 200
-            assert request(SUPERVISOR, 8099, "/openlist/api/admin/storage/create", trusted, "POST")["status"] == 403
-            cross_site = {**trusted, "Origin": "https://attacker.example"}
-            assert request(SUPERVISOR, 8099, "/openlist/api/admin/storage/create", cross_site, "POST")["status"] == 403
-            same_site = {**trusted, "Origin": "http://172.30.32.3:8099"}
-            # A real same-origin admin write must work; rotation takes effect immediately.
-            same_site["Content-Type"] = "application/json"
-            rotated = request(SUPERVISOR, 8099, "/openlist/api/admin/setting/reset_token", same_site, "POST", {})
-            assert rotated["status"] == 200 and json.loads(rotated["body"])["code"] == 200
-            # Browser sees public HTTPS, while HA/proxy headers describe internal
-            # HTTP. Same-origin Fetch Metadata must make a real write work.
-            browser = {**trusted, "Origin": "https://ha.example",
+            write_headers = {**trusted, "Content-Type": "application/json"}
+            # This fixture represents requests ALREADY authenticated by HA.
+            # The adapter must not add a browser-origin/session policy of its own.
+            browser = {**write_headers, "Origin": "https://ha.example",
                        "X-Forwarded-Host": "homeassistant:8123", "X-Forwarded-Proto": "http",
-                       "Content-Type": "application/json"}
+                       "Sec-Fetch-Site": "same-origin"}
             endpoint = "/openlist/api/admin/setting/reset_token"
-            assert request(SUPERVISOR, 8099, endpoint, browser, "POST", {})["status"] == 403
-            forged = {**browser, "X-Ingress-Fetch-Site": "same-origin"}
-            assert request(SUPERVISOR, 8099, endpoint, forged, "POST", {})["status"] == 403
-            browser["Sec-Fetch-Site"] = "same-origin"
-            result = request(SUPERVISOR, 8099, endpoint, browser, "POST", {})
-            assert result["status"] == 200 and json.loads(result["body"])["code"] == 200
-            for site in ("cross-site", "same-site", "none", "invalid"):
-                rejected = {**browser, "Sec-Fetch-Site": site}
-                assert request(SUPERVISOR, 8099, endpoint, rejected, "POST", {})["status"] == 403
             missing_origin = {key: value for key, value in browser.items() if key != "Origin"}
-            assert request(SUPERVISOR, 8099, endpoint, missing_origin, "POST", {})["status"] == 403
+            for headers in (write_headers, browser, missing_origin,
+                            {**write_headers, "Origin": "null", "Sec-Fetch-Site": "cross-site"}):
+                result = request(SUPERVISOR, 8099, endpoint, headers, "POST", {})
+                assert result["status"] == 200 and json.loads(result["body"])["code"] == 200
+            # Regression for the user's failing filesystem request with stripped
+            # Origin AND stripped Fetch Metadata, not merely mismatched origins.
+            result = request(SUPERVISOR, 8099, "/openlist/api/fs/get", write_headers,
+                             "POST", {"path": "/", "password": ""})
+            assert result["status"] == 200 and json.loads(result["body"])["code"] == 200
             assert request(NAME, 8099, endpoint, browser, "POST", {})["status"] == 403
+            forged = {**browser, "X-Ingress-Peer": "172.30.32.2", "X-Ingress-Fetch-Site": "same-origin"}
+            assert request(UNTRUSTED, 8099, endpoint, forged, "POST", {})["status"] == 403
+            no_identity = {key: value for key, value in forged.items() if key != "X-Remote-User-Id"}
+            assert request(SUPERVISOR, 8099, endpoint, no_identity, "POST", {})["status"] == 403
             assert json.loads(request(SUPERVISOR, 8099, "/openlist/api/me", trusted)["body"])["data"]["role"] == 2
             assert request(SUPERVISOR, 8099, "/openlist/api/me")["status"] == 403
             assert request(NAME, 8099, "/openlist/api/me", trusted)["status"] == 403
@@ -181,7 +180,7 @@ def main():
             print(docker("logs", NAME, check=False), file=sys.stderr)
             raise
         finally:
-            docker("rm", "-f", NAME, SUPERVISOR, check=False)
+            docker("rm", "-f", NAME, SUPERVISOR, UNTRUSTED, check=False)
             docker("network", "rm", NETWORK, check=False)
             docker("run", "--rm", "--entrypoint", "python3", "-v", f"{data}:/data", IMAGE,
                    "-c", "import pathlib,shutil; [shutil.rmtree(p) if p.is_dir() else p.unlink() for p in pathlib.Path('/data').iterdir()]", check=False)
