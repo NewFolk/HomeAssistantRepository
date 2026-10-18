@@ -11,6 +11,7 @@ import re
 import sqlite3
 import sys
 from urllib.request import Request, urlopen
+from urllib.parse import urlsplit
 
 
 MIN_SUPERVISOR = (2026, 10, 2)
@@ -69,6 +70,50 @@ def admin_token(config_path):
     return row[0]
 
 
+def origin_tuple(value):
+    """Compare browser origins, not raw strings with optional default ports."""
+    try:
+        parsed = urlsplit(value)
+        if (parsed.scheme not in ("http", "https") or not parsed.hostname
+                or parsed.username is not None or parsed.password is not None
+                or parsed.path or parsed.query or parsed.fragment):
+            return None
+        port = parsed.port
+        if port is None:
+            port = 443 if parsed.scheme == "https" else 80
+        return parsed.scheme, parsed.hostname, port
+    except ValueError:
+        return None
+
+
+def origin_rejection(headers):
+    """Browser Fetch Metadata survives TLS termination without a URL allowlist.
+
+    Scripts cannot forge Sec-Fetch-Site. nginx must pass the actual browser
+    header, not a client-provided X-Ingress-Fetch-Site. This is CSRF evidence,
+    never a replacement for Supervisor peer, identity and panel checks.
+    """
+    site = headers.get("X-Ingress-Fetch-Site")
+    if site in ("cross-site", "same-site"):
+        return "cross_origin_fetch"
+    origin = headers.get("Origin")
+    unsafe = headers.get("X-Ingress-Method") not in ("GET", "HEAD", "OPTIONS")
+    if unsafe and not origin:
+        return "missing_origin"
+    if origin:
+        actual = origin_tuple(origin)
+        if actual is None:
+            return "invalid_origin"
+        # The browser evaluates the public target before proxy rewrites; scheme,
+        # hostname and port can differ from the internal HTTP transport here.
+        if site == "same-origin":
+            return None
+        expected = origin_tuple(f"{headers.get('X-Ingress-Proto')}://{headers.get('X-Ingress-Host')}")
+        if expected is None or actual != expected:
+            return "origin_mismatch"
+    return None
+
+
 def handler(config_path):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_args):
@@ -83,13 +128,13 @@ def handler(config_path):
                 self.headers.get("X-Ingress-Peer") != "172.30.32.2"
                 or not self.headers.get("X-Remote-User-Id")
             ):
+                print("[WARN] Ingress auto-login request rejected: untrusted_peer_or_missing_identity", file=sys.stderr, flush=True)
                 self.send_error(403)
                 return
             if self.path == "/authorize":
-                expected = f"{self.headers.get('X-Ingress-Proto')}://{self.headers.get('X-Ingress-Host')}"
-                origin = self.headers.get("Origin")
-                unsafe = self.headers.get("X-Ingress-Method") not in ("GET", "HEAD", "OPTIONS")
-                if (origin and origin != expected) or (unsafe and not origin):
+                reason = origin_rejection(self.headers)
+                if reason:
+                    print(f"[WARN] Ingress auto-login request rejected: {reason}", file=sys.stderr, flush=True)
                     self.send_error(403, "Ingress writes require a same-origin browser request")
                     return
             try:

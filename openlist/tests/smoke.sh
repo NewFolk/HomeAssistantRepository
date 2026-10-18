@@ -160,13 +160,15 @@ config_checksum="$(source_checksum)"
 # Reuse the populated data directory across recreated containers. HA options
 # must affect the running application, but not overwrite the persistent source.
 docker exec "${CONTAINER}" sh -c \
-    'printf "%s\n" '\''{"openlist":"tasks:\n  copy:\n    task_persistant: true\ntoken_expires_in: 168\n"}'\'' > /data/options.json'
+    'printf "%s\n" '\''{"openlist":"tasks:\n  copy:\n    task_persistant: true\n  move:\n    task_persistant: true\n  download:\n    task_persistant: true\n  transfer:\n    task_persistant: true\n  decompress:\n    task_persistant: true\ntoken_expires_in: 168\nlog:\n  filter:\n    filters:\n      - path: /ping\n"}'\'' > /data/options.json'
 docker rm --force "${CONTAINER}" >/dev/null
 start_container
 test_ingress
 docker exec "${CONTAINER}" jq --exit-status \
-    '.tasks.copy.task_persistant == true and .token_expires_in == 168' \
+    '([.tasks.copy, .tasks.move, .tasks.download, .tasks.transfer, .tasks.decompress] | all(.task_persistant == true)) and .token_expires_in == 168' \
     /data/.openlist-runtime.json >/dev/null
+docker logs "${CONTAINER}" 2>&1 | grep --quiet --fixed-strings \
+    'All 7 HA OpenList override paths verified'
 test "$(source_checksum)" = "${config_checksum}"
 
 docker exec "${CONTAINER}" sh -c 'printf "%s\n" '\''{"openlist":"{}"}'\'' > /data/options.json'
@@ -185,3 +187,23 @@ docker run --rm --platform linux/amd64 --entrypoint /bin/sh \
     --volume "${DATA_DIR}:/data" "${IMAGE}" -c \
     'printf "%s\n" '\''{"openlist":"tasks:\n  copy:\n    task_persistant: not-a-boolean"}'\'' > /data/options.json'
 expect_startup_failure 'load config error'
+
+# The real upstream decoder must remove misspellings before our read-back.
+# This guards the validation contract on every future upstream update too.
+docker run --rm --platform linux/amd64 --entrypoint /bin/sh \
+    --volume "${DATA_DIR}:/data" "${IMAGE}" -c \
+    'printf "%s\n" '\''{"openlist":"tasks:\n  copy:\n    task_persistent: true"}'\'' > /data/options.json'
+expect_startup_failure 'HA override not accepted by OpenList: openlist.tasks.copy.task_persistent'
+docker run --rm --platform linux/amd64 --entrypoint /bin/sh \
+    --volume "${DATA_DIR}:/data" "${IMAGE}" -c \
+    'printf "%s\n" '\''{"openlist":"tasks:\n  copy:\n    task_persistant: true\n    task_persistant: false"}'\'' > /data/options.json'
+expect_startup_failure 'Invalid YAML in openlist'
+# Correcting the input restores the existing installation without deleting data.
+docker run --rm --platform linux/amd64 --entrypoint /bin/sh \
+    --volume "${DATA_DIR}:/data" "${IMAGE}" -c \
+    'printf "%s\n" '\''{"openlist":"{}"}'\'' > /data/options.json'
+docker rm --force "${CONTAINER}" >/dev/null
+start_container
+test_ingress
+test "$(source_checksum)" = "${config_checksum}"
+test -e "${DATA_DIR}/data.db"

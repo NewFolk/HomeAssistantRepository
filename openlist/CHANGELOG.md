@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.2
+
+- Verify every HA-supplied OpenList path and value against the working configuration after OpenList has loaded and normalized it, before opening Ingress.
+- Log verified field paths without values; reject ignored/misspelled keys, read-back mismatches and duplicate YAML keys instead of silently accepting them.
+- Support same-origin browser requests through HTTPS-terminating proxies using Fetch Metadata, without a new URL option or Home Assistant Core API permission.
+- Keep Supervisor/admin checks, strict Origin fallback, cross-origin rejection and normal direct-port authentication; log safe rejection reasons.
+- Show the add-on version and explicit enabled/disabled auto-login status at startup.
+- Extend real-container tests for all five persistence flags, spelling errors, recovery, proxy-rewritten origins and forged metadata headers.
+
 ## 1.4.1
 
 - Fix HA options silently resetting on Save: replace the empty `schema: false` contract with supported boolean/string fields.
