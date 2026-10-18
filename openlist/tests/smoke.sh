@@ -160,7 +160,7 @@ config_checksum="$(source_checksum)"
 # Reuse the populated data directory across recreated containers. HA options
 # must affect the running application, but not overwrite the persistent source.
 docker exec "${CONTAINER}" sh -c \
-    'printf "%s\n" '\''{"openlist":{"tasks":{"copy":{"task_persistant":true}},"token_expires_in":168}}'\'' > /data/options.json'
+    'printf "%s\n" '\''{"openlist":"tasks:\n  copy:\n    task_persistant: true\ntoken_expires_in: 168\n"}'\'' > /data/options.json'
 docker rm --force "${CONTAINER}" >/dev/null
 start_container
 test_ingress
@@ -169,7 +169,7 @@ docker exec "${CONTAINER}" jq --exit-status \
     /data/.openlist-runtime.json >/dev/null
 test "$(source_checksum)" = "${config_checksum}"
 
-docker exec "${CONTAINER}" sh -c 'printf "%s\n" '\''{"openlist":{}}'\'' > /data/options.json'
+docker exec "${CONTAINER}" sh -c 'printf "%s\n" '\''{"openlist":"{}"}'\'' > /data/options.json'
 docker rm --force "${CONTAINER}" >/dev/null
 start_container
 test_ingress
@@ -179,9 +179,9 @@ docker exec "${CONTAINER}" jq --exit-status \
 test "$(source_checksum)" = "${config_checksum}"
 test -e "${DATA_DIR}/data.db"
 
-docker exec "${CONTAINER}" sh -c 'printf "%s\n" '\''{"openlist":{"site_url":"/wrong"}}'\'' > /data/options.json'
+docker exec "${CONTAINER}" sh -c 'printf "%s\n" '\''{"openlist":"site_url: /wrong"}'\'' > /data/options.json'
 expect_startup_failure 'openlist.site_url is managed by the HA add-on'
 docker run --rm --platform linux/amd64 --entrypoint /bin/sh \
     --volume "${DATA_DIR}:/data" "${IMAGE}" -c \
-    'printf "%s\n" '\''{"openlist":{"tasks":{"copy":{"task_persistant":"not-a-boolean"}}}}'\'' > /data/options.json'
+    'printf "%s\n" '\''{"openlist":"tasks:\n  copy:\n    task_persistant: not-a-boolean"}'\'' > /data/options.json'
 expect_startup_failure 'load config error'

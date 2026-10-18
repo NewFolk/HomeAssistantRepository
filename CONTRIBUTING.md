@@ -15,6 +15,7 @@ Before opening a pull request, run the same checks used by CI when the required 
 
 ```bash
 git diff --check
+python3 -m pip install -r openlist/tests/requirements.txt
 sh -n openlist/run.sh openlist/prepare-config.sh google_workspace_mcp/run.sh
 shellcheck openlist/run.sh openlist/prepare-config.sh google_workspace_mcp/run.sh openlist/tests/smoke.sh
 python3 -m unittest discover -s scripts -p 'test_*.py'
@@ -26,6 +27,21 @@ python3 openlist/tests/ingress-auth-smoke.py local/openlist-addon:test
 
 The smoke test builds confidence that the container starts, becomes healthy, serves its direct UI, rewrites the simulated Home Assistant Ingress path for frontend assets and API calls, reports the expected upstream version, and reuses its persistent data. It does not replace testing inside Home Assistant.
 
+## Supervisor option persistence contract
+
+Use real supported schemas: `ingress_auto_login: bool` and `openlist: str`, with matching defaults. Advanced settings are stored as a YAML/JSON string (`openlist: |`), decoded by `parse-options.py` with PyYAML's safe loader into a private temporary JSON document, then merged by the existing jq filter. Never rewrite Supervisor's `/data/options.json`, dump its values on parse failure, or replace the persistent OpenList source with overrides.
+
+`schema: false` is **not** an arbitrary-dictionary escape hatch. In Supervisor 2026.10.2, `AppModel.options_schema()` turns boolean schemas into `{}` and `AppOptions` drops every unrecognized key during both saving and writing options. Empty nested schemas similarly discard unknown nested keys. A container test that writes options.json directly misses this boundary.
+
+CI checks out Supervisor commit `c9e000812b7131fa1f1b72b483555083929d7f83` (2026.10.2) and runs `openlist/tests/supervisor-options.py` with Python 3.14 and its pinned PyYAML/voluptuous versions. The test executes the actual upstream option validator and schema factory, stubbing only unrelated hardware/CoreSys imports. It reproduces the false-schema data loss, checks typed-schema JSON save/reload including the auto-login switch, then feeds validated settings into the built image and recreates it after saves made while running and stopped. Verify options are unchanged, settings apply/remove and the persistent source checksum remains unchanged. This contract test is not a running Supervisor REST server or frontend test; real HA Save/reload still needs user confirmation.
+
+To run it locally with a checkout of the pinned Supervisor revision and the built image:
+
+```bash
+python3.14 -m pip install -r openlist/tests/requirements.txt
+python3.14 openlist/tests/supervisor-options.py /path/to/supervisor local/openlist-addon:test
+```
+
 ## Ingress authentication trust boundary
 
 `ingress_auto_login` defaults to false. When enabled, Supervisor's `panel_admin: true` default is a security boundary, not just a sidebar preference. Keep that property omitted (the linter rejects redundant defaults); never set it to false. Supervisor 2026.10.2 is the first supported version: [upstream enforcement change](https://github.com/home-assistant/supervisor/pull/7308). The add-on checks the stable Supervisor version through the already permitted `/info` endpoint before starting auto-login; do not remove this check or substitute trust in a client-provided role/name header. No `hassio_api`, `homeassistant_api`, `auth_api`, host networking or privileged role is needed.
@@ -36,7 +52,7 @@ Helper tests cover version rejection, opt-in configuration, read-only access, ro
 
 ## Automated OpenList patch releases
 
-CI builds the add-on linter from pinned upstream commit `b9cfd1bc62ba60d2c4fc96317b5f7ada5923f4a7`. Its JSON schema receives one compatibility fix: accept the official Supervisor `schema: false` mode as well as object schemas. All other upstream lint checks remain enabled. Update this pinned checkout manually when adopting a new linter release, and remove the fix when upstream supports it.
+CI builds the add-on linter from pinned upstream commit `b9cfd1bc62ba60d2c4fc96317b5f7ada5923f4a7` without modifying its schema or disabling checks. Update this pinned checkout manually when adopting a new linter release.
 
 The `Update OpenList` workflow checks the latest stable upstream release daily at 07:23 UTC and can also be run manually in Actions. It pins the image digest, checks for a linux/amd64 image, increments the HA package patch version, and updates documentation and changelog together.
 

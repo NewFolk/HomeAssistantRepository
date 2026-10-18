@@ -28,10 +28,10 @@ With **Supervisor 2026.10.2 or newer**, you can open OpenList as its existing ad
 
 ```yaml
 ingress_auto_login: true
-openlist: {}
+openlist: "{}"
 ```
 
-Complete OpenList's initial setup first. Save, restart the add-on, and select **Open Web UI** while signed in to Home Assistant as an administrator. The default is `ingress_auto_login: false`, which keeps normal OpenList login. Set it back to `false` and restart to disable auto-login. Do not replace a populated `openlist` mapping with `{}` unless you want to remove its overrides.
+Complete OpenList's initial setup first. Save, restart the add-on, and select **Open Web UI** while signed in to Home Assistant as an administrator. The default is `ingress_auto_login: false`, which keeps normal OpenList login. Set it back to `false` and restart to disable auto-login. Keep any existing `openlist` text block; replacing it with `"{}"` removes its overrides.
 
 Security boundaries:
 
@@ -45,10 +45,11 @@ The feature is covered by helper and real-container tests, but still requires va
 
 ## OpenList settings in Home Assistant
 
-Open the add-on's **Configuration** tab. It uses Home Assistant's built-in YAML editor. Put any settings documented for OpenList's [config.json](https://doc.oplist.org/configuration/configuration) under `openlist`, keeping the same names and nesting:
+Open the add-on's **Configuration** tab. `ingress_auto_login` is a regular boolean switch. For advanced OpenList settings, select **⋮ → Edit in YAML** in the options card and use a **text block** beginning with `openlist: |`. Inside that block, use any settings documented for OpenList's [config.json](https://doc.oplist.org/configuration/configuration), keeping their names and nesting:
 
 ```yaml
-openlist:
+ingress_auto_login: false
+openlist: |
   tasks:
     copy:
       task_persistant: true
@@ -65,9 +66,17 @@ openlist:
   token_expires_in: 168
 ```
 
-Save and restart the add-on. Numbers and booleans retain their types; use `true`, not `"true"`. JSON syntax is also valid YAML. Only specify fields you want to override. Nested objects merge recursively, while arrays replace the entire original array. A parameter must be supported by the installed OpenList version; there is no add-on allowlist of general OpenList settings. OpenList can ignore unknown keys, so check spelling against its documentation.
+The `|` is required for multiline YAML: HA stores the entire block as a string, and the add-on safely parses it on startup. A bare `openlist:` mapping or `openlist: {}` is not supported by HA's schema; use the block above or a quoted JSON string, for example `openlist: '{"token_expires_in":168}'`. To remove all overrides, use `openlist: "{}"` or an empty string.
 
-`/data/config.json` remains the persistent source, including generated keys and any pre-existing manual configuration. The add-on builds a private working copy at `/data/.openlist-runtime.json` on each start. Removing a field from HA restores the source value (or the upstream default when the source has no value). Set `openlist: {}` to remove all HA overrides. Do not edit the generated working copy. OpenList configuration environment variables are ignored for the working copy, ensuring the YAML settings take effect.
+Save and restart the add-on, then reopen Configuration to check the saved values. Numbers and booleans **inside the block** retain their types after parsing; use `true`, not `"true"`. Only specify fields you want to override. Nested objects merge recursively, while arrays replace the entire original array. A parameter must be supported by the installed OpenList version; there is no add-on allowlist of general OpenList settings. OpenList can ignore unknown keys, so check spelling against its documentation. Invalid inner YAML or unsupported value types stop startup with a concise log error; configuration values are not printed.
+
+### Upgrading from add-on 1.3.0 or 1.4.0
+
+Those releases incorrectly used `schema: false` as if it enabled arbitrary HA options. Supervisor actually turns it into an empty schema and silently removes all submitted keys, including `ingress_auto_login`. Saving can appear successful and suggest a restart, while the editor returns to defaults even when the add-on is stopped. This was an add-on packaging bug, not an OpenList restart problem.
+
+Update to **1.4.1 or newer**, refresh the add-on page, and enter the desired settings again using the new text-block format. Previously discarded HA values cannot be recovered automatically. Do not reinstall the add-on or delete its data: the fix preserves the existing `/data/config.json`, database, users and storage providers. Settings that were never retained/applied cannot retroactively restore old in-memory task history.
+
+`/data/config.json` remains the persistent source, including generated keys and any pre-existing manual configuration. The add-on builds a private working copy at `/data/.openlist-runtime.json` on each start. Removing a field from the text block restores the source value (or the upstream default when the source has no value). Set `openlist: "{}"` to remove all HA overrides. Do not edit the generated working copy. The add-on only reads `/data/options.json`; it never rewrites the options owned by Supervisor. OpenList configuration environment variables are ignored for the working copy, ensuring the YAML settings take effect.
 
 The add-on owns `force`, `site_url`, `last_launched_version`, `scheme.address`, `scheme.http_port`, `scheme.https_port`, `scheme.force_https`, `scheme.unix_file`, `database.type`, and `database.db_file`. Do not specify these in overrides: they keep Ingress, health checks, and the persistent SQLite database working. An attempt to override them stops startup with the offending field name in the log. Root/section structure and JSON syntax are checked before launching. OpenList 4.2.7 has no standalone config-validation command; it validates its own field types during startup and reports errors in the log. Configuration values are not dumped by the wrapper.
 

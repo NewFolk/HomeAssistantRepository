@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.1
+
+- Fix HA options silently resetting on Save: replace the empty `schema: false` contract with supported boolean/string fields.
+- Store arbitrary OpenList configuration as a YAML/JSON text block (`openlist: |`), preserving numbers, booleans and nesting after parsing.
+- Keep Supervisor-owned options.json, existing OpenList configuration, database and passwords unchanged.
+- Document re-entering previously discarded settings; no reinstall or data deletion is needed.
+- Reproduce the old failure using pinned Supervisor validation code and test validated saves while running/stopped across container recreation.
+- Remove the unnecessary linter schema override and run the pinned linter unmodified.
+
 ## 1.4.0
 
 - Add opt-in `ingress_auto_login` for the existing OpenList administrator through Home Assistant Ingress.

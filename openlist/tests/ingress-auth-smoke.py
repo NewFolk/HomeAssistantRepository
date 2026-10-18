@@ -93,17 +93,17 @@ def main():
             docker("run", "-d", "--name", SUPERVISOR, "--network", NETWORK, "--ip", "172.30.32.2",
                    "--entrypoint", "python3", "-v", f"{TESTS}:/tests:ro", "-v", f"{fixtures}:/fixtures:ro",
                    IMAGE, "/tests/mock-supervisor.py")
-            write_options(data, {"ingress_auto_login": True, "openlist": {}})
+            write_options(data, {"ingress_auto_login": True, "openlist": "{}"})
             start(data)
             expect_stopped("active OpenList administrator")
-            write_options(data, {"ingress_auto_login": False, "openlist": {}})
+            write_options(data, {"ingress_auto_login": False, "openlist": "{}"})
             start(data)
             healthy()
             setup = request(SUPERVISOR, 5244, "/openlist/api/public/init/setup",
                             {"Content-Type": "application/json"}, "POST",
                             {"username": "admin", "password": "ci-only-fixture-password"})
             assert json.loads(setup["body"])["code"] == 200
-            write_options(data, {"ingress_auto_login": True, "openlist": {}})
+            write_options(data, {"ingress_auto_login": True, "openlist": "{}"})
             start(data)
             healthy()
             trusted = {"X-Remote-User-Id": "ci-ha-admin", "Authorization": "forged-client-token"}
@@ -144,7 +144,7 @@ def main():
             start(data)
             expect_stopped("Supervisor 2026.10.2+")
             # Roll back the option without losing the initialized DB or admin.
-            write_options(data, {"ingress_auto_login": False, "openlist": {}})
+            write_options(data, {"ingress_auto_login": False, "openlist": "{}"})
             start(data)
             healthy()
             regular = request(SUPERVISOR, 8099, "/openlist/api/me", trusted)
