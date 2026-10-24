@@ -1,6 +1,6 @@
-FROM docker.io/openlistteam/openlist:v4.2.7@sha256:11b490123d57f88c84ecda46285e1921869cf511da3e5bb4062f183e7e1200b7
+FROM docker.io/openlistteam/openlist:v4.2.8@sha256:f01a4a3f96020cc2493e0b2eed7a3c8ddea54e3fa57f18ff192bd039ba5cd979
 
-ARG BUILD_VERSION="1.4.3"
+ARG BUILD_VERSION="1.4.4"
 ARG BUILD_ARCH="amd64"
 ENV OPENLIST_ADDON_VERSION="${BUILD_VERSION}"
 
