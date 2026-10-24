@@ -8,7 +8,7 @@ This repository contains custom Home Assistant add-ons.
   - A file-listing and sharing platform for many storage providers.
   - Includes Home Assistant Ingress, persistent configuration, and access to `/share` and `/media`.
   - Optional administrator auto-login through Ingress (Supervisor 2026.10.2+); direct port stays disabled by default.
-  - Current experimental release: OpenList `v4.2.7` on `amd64`.
+  - Current experimental release: OpenList `v4.2.8` on `amd64`.
   - Based on: `OpenListTeam/OpenList`.
 
 - **Google Workspace MCP** (`google_workspace_mcp`)

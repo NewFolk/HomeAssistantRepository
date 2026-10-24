@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.4
+
+- Update OpenList from `v4.2.7` to `v4.2.8` with a pinned image digest.
+
 ## 1.4.3
 
 - Follow Home Assistant's standard Ingress authentication boundary instead of maintaining an extra Origin/Fetch Metadata policy in the add-on.
