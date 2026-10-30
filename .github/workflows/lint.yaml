@@ -82,8 +82,12 @@ jobs:
 
       - name: Check shell syntax
         run: |
-          sh -n openlist/run.sh openlist/prepare-config.sh google_workspace_mcp/run.sh
-          bash -n openlist/tests/smoke.sh
+          for script in openlist/run.sh openlist/prepare-config.sh; do
+            sh -n "${script}"
+          done
+          for script in google_workspace_mcp/run.sh openlist/tests/smoke.sh; do
+            bash -n "${script}"
+          done
 
       - name: Run ShellCheck
         run: shellcheck openlist/run.sh openlist/prepare-config.sh google_workspace_mcp/run.sh openlist/tests/smoke.sh
