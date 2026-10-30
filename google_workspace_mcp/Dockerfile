@@ -12,7 +12,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir workspace-mcp==1.11.1 fastmcp==4.1.4 mcp==2.3.0
+    && pip install --no-cache-dir workspace-mcp==2.2.1 fastmcp==4.1.4 mcp==2.3.0
 
 COPY run.sh /run.sh
 COPY patches/sitecustomize.py /opt/google_workspace_mcp_patch/sitecustomize.py
