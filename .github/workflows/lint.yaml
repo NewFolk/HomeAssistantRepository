@@ -14,6 +14,11 @@ on:
         description: Exact commit to validate
         required: true
         type: string
+      google_workspace_baseline_ref:
+        description: Exact published commit for the Google Workspace MCP upgrade test
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -97,6 +102,8 @@ jobs:
     needs: [lint, shell]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 15
+    env:
+      BASELINE_REF: ${{ inputs.google_workspace_baseline_ref || github.event.pull_request.base.sha }}
     strategy:
       fail-fast: false
       matrix:
@@ -117,6 +124,22 @@ jobs:
 
       - name: Test runtime and OAuth contracts with synthetic credentials
         run: python3 google_workspace_mcp/tests/smoke.py local/google-workspace-mcp:test
+
+      - name: Check out the published upgrade baseline
+        if: env.BASELINE_REF != ''
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.BASELINE_REF }}
+          path: .ci/google-workspace-baseline
+          persist-credentials: false
+
+      - name: Build the published upgrade baseline
+        if: env.BASELINE_REF != ''
+        run: docker build --tag local/google-workspace-mcp:baseline .ci/google-workspace-baseline/google_workspace_mcp
+
+      - name: Test an upgrade from the published image on the same data volume
+        if: env.BASELINE_REF != ''
+        run: python3 google_workspace_mcp/tests/smoke.py local/google-workspace-mcp:test local/google-workspace-mcp:baseline
 
   openlist:
     name: Build and smoke test (${{ matrix.arch }})

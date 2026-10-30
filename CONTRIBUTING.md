@@ -32,10 +32,12 @@ The smoke test builds confidence that the container starts, becomes healthy, ser
 Google Workspace MCP is built and smoke-tested on native amd64 and aarch64 runners.
 Its separate test uses synthetic OAuth credentials to check the installed Python,
 package dependencies, actual scope-filtering hooks, discovery, client registration,
-rejection of unsupported scopes and unauthenticated MCP requests, and registration
-persistence across container recreation. It does not sign in to Google, call a
-Google tool, or exercise real refresh-token rotation; those still need an
-authenticated integration check when changing OAuth behavior.
+rejection of unsupported scopes and unauthenticated MCP requests, real token
+rotation/retry/expiry behavior with only the Google transport mocked, and client
+persistence across container recreation. PRs and the Google updater also build
+the exact published baseline and verify its registered client survives upgrading
+on the same data volume. It does not sign in to Google or call a Google tool;
+those still need an authenticated integration check when changing OAuth behavior.
 
 ## Supervisor option persistence contract
 
@@ -77,3 +79,23 @@ Only newer releases in the same upstream major/minor series are automatic. Prere
 The workflow opens a PR, calls the complete CI workflow on its exact commit with read-only permissions, then merges only if validation succeeds and main has not changed. Failed runs leave the PR open. The explicit reusable CI call is the validation gate and runs automatically without PR workflow approval. GitHub can also create a separate approval-required `pull_request` CI run for PRs opened with GITHUB_TOKEN; that duplicate run does not need manual approval for the updater to validate and merge its tested commit. See [GITHUB_TOKEN workflow triggers](https://docs.github.com/en/actions/concepts/security/github_token). No personal access token is needed. Repository Actions settings must allow GitHub Actions to create pull requests.
 
 Merging publishes an add-on update to the repository. Installation on a Home Assistant instance is controlled separately by that instance's update settings.
+
+## Automated Google Workspace MCP releases
+
+`Update Google Workspace MCP` runs daily at 08:17 UTC and supports manual dispatch.
+The metadata-only prepare job selects the highest stable three-part versions of
+workspace-mcp, FastMCP and MCP with non-yanked wheels on PyPI. It also refreshes the
+immutable Python image digest without changing the existing Python major/minor
+tag and verifies linux/amd64 and linux/arm64 manifests. It never installs or executes
+the candidate packages with write permissions. Dockerfile pins, add-on version,
+README release/runtime lines and changelog are updated as one release.
+
+The updater follows the same PR/exact-commit/read-only-CI/unchanged-main merge gate
+as OpenList. Its reusable CI additionally receives the exact published base SHA
+for both native Google upgrade tests. Only a successful full validation can reach
+the merge job; failure leaves a reviewable PR and the published release unchanged.
+Package major/minor releases are eligible because the user authorized tested
+runtime upgrades. Python branch upgrades and compatibility-code adaptations remain
+maintainer changes with their own validation. The updater never edits tests or
+runtime hooks to make an incompatible candidate pass. Docker Dependabot for this
+add-on is replaced by this coordinated updater; GitHub Actions Dependabot remains.

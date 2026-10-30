@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.9
+
+- Preserve the existing encrypted FastMCP storage location when upstream adds a separate disk backend.
+- Verify refresh tokens with their correct token type so duplicate refresh requests reuse the cached rotation result during the grace window.
+- Add real rotation/retry/expiry checks with a mocked Google transport and published-image upgrade tests on both architectures.
+- Automate coordinated stable runtime updates and Python image digest refreshes, publishing only the exact commit that passes the full CI and upgrade tests.
+
 ## 0.2.8
 
 - Upgrade to Python 3.14 with a pinned base image digest.

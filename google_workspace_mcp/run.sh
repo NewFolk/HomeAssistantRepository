@@ -71,9 +71,10 @@ export MCP_ENABLE_OAUTH21="$ENABLE_OAUTH21"
 export WORKSPACE_MCP_STATELESS_MODE="$STATELESS_MODE"
 export MCP_CLIENT_COMPAT_SCOPES="$CLIENT_COMPAT_SCOPES"
 
-# Default to disk-backed OAuth proxy state to prevent re-auth on restarts.
-# (If dependencies are missing, workspace-mcp will log a warning and fall back.)
-export WORKSPACE_MCP_OAUTH_PROXY_STORAGE_BACKEND="disk"
+# Keep FastMCP's encrypted file store under FASTMCP_HOME. The previous runtime
+# fell back to this store; switching to upstream's separate disk backend on an
+# upgrade would hide existing client registrations and tokens.
+export WORKSPACE_MCP_OAUTH_PROXY_STORAGE_BACKEND=""
 export WORKSPACE_MCP_OAUTH_PROXY_DISK_DIRECTORY="/data/oauth-proxy"
 export FASTMCP_HOME="/data/fastmcp"
 

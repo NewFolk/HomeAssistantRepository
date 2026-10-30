@@ -120,6 +120,24 @@ Implementation:
 
 ## Where this is implemented
 
+### FastMCP token-type and storage compatibility (0.2.9)
+
+FastMCP 4.1.4 verifies access tokens by default. The refresh grace hook must pass
+`expected_token_use="refresh"` when reading the old refresh JTI; otherwise its
+verification fails and retries perform another upstream refresh instead of using
+the cached rotation. `tests/oauth_runtime.py` exercises the real JWT issuer,
+token stores and rotation code with only the Google HTTP transport/claim lookup
+mocked. It checks identical retry responses, one upstream call, scope filtering
+and rejection after the grace entries expire; it never prints issued tokens.
+
+The older workspace runtime fell back from the requested disk backend to FastMCP's
+encrypted store under `/data/fastmcp`. Newer upstream versions implement their own
+separate file store. The wrapper explicitly keeps FastMCP's default store and
+stable `FASTMCP_HOME`, preserving the existing client/token location. CI upgrades
+from the actual published image on the same volume and verifies the registered
+client remains usable. This does not prove a live Google refresh or every old
+deployment's migration history.
+
 - Patch file: `google_workspace_mcp/patches/sitecustomize.py`
 - Loaded via `PYTHONPATH=/opt/google_workspace_mcp_patch` in Docker image.
 - Applied at interpreter startup.

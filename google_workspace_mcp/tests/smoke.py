@@ -31,7 +31,7 @@ def request(port, path, data=None):
         connection.close()
 
 
-def main(image):
+def main(image, baseline=None):
     root = Path(__file__).resolve().parents[1]
     dockerfile = (root / "Dockerfile").read_text()
     python_version = re.search(r"^FROM python:([\d.]+)-", dockerfile)[1]
@@ -79,11 +79,21 @@ assert set(parse_qs(urlparse(url).query)["scope"][0].split()) == set(scopes[1:])
 assert set(provider._prepare_scopes_for_upstream_refresh(scopes)) == set(scopes[1:])
 '''
         docker("run", "--rm", "--entrypoint", "python", image, "-c", hooks, python_version)
+        docker(
+            "run", "--rm", "--volume", f"{root / 'tests/oauth_runtime.py'}:/oauth-runtime.py:ro",
+            "--entrypoint", "python", image, "/oauth-runtime.py",
+        )
         client = None
-        for iteration in range(2):
+        baseline_version = docker(
+            "run", "--rm", "--entrypoint", "python", baseline, "-c",
+            "from importlib.metadata import version; print(version('workspace-mcp'))",
+        ) if baseline else None
+        for iteration in range(3 if baseline else 2):
+            active_image = baseline if baseline and iteration == 0 else image
+            expected_version = baseline_version if baseline and iteration == 0 else package_version
             docker(
                 "run", "--detach", "--name", name, "--publish", "127.0.0.1::8000",
-                "--volume", f"{volume}:/data", image,
+                "--volume", f"{volume}:/data", active_image,
             )
             port = int(docker("port", name, "8000/tcp").rsplit(":", 1)[1])
             deadline = time.monotonic() + 90
@@ -93,7 +103,7 @@ assert set(provider._prepare_scopes_for_upstream_refresh(scopes)) == set(scopes[
                     if status == 200:
                         health = json.loads(body)
                         assert health["status"] == "healthy"
-                        assert health["version"] == package_version
+                        assert health["version"] == expected_version
                         break
                 except (OSError, http.client.HTTPException):
                     pass
@@ -140,11 +150,12 @@ assert set(provider._prepare_scopes_for_upstream_refresh(scopes)) == set(scopes[
             ))
             assert persisted == options
             docker("rm", "--force", name)
-        print("PASS: runtime, OAuth scope hooks, registration, access boundary, and persisted client")
+        print("PASS: runtime, OAuth scope hooks, registration, access boundary, and persisted client"
+              + (" across baseline upgrade and recreation" if baseline else ""))
     finally:
         subprocess.run(["docker", "rm", "--force", name], capture_output=True, check=False)
         docker("volume", "rm", volume)
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    main(sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else None)

@@ -162,7 +162,9 @@ def _patch_fastmcp_oauth_proxy() -> bool:
         # Derive refresh_jti (used as stable key).
         refresh_jti: str | None = None
         try:
-            payload = self.jwt_issuer.verify_token(refresh_token.token)
+            payload = self.jwt_issuer.verify_token(
+                refresh_token.token, expected_token_use="refresh"
+            )
             refresh_jti = payload.get("jti")
         except Exception:
             refresh_jti = None
