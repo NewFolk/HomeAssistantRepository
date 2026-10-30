@@ -55,11 +55,11 @@ class UpdateTests(unittest.TestCase):
         self.assertEqual(plan(self.root, "v4.2.3", "sha256:" + "a" * 64), {})
 
     def test_bad_digest_and_version_drift(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(ValueError, "Invalid image digest"):
             plan(self.root, "v4.2.7", "latest")
         config = self.root / "openlist/config.yaml"
-        config.write_text(config.read_text().replace('version: "', 'version: "99.'))
-        with self.assertRaises(ValueError):
+        config.write_text(re.sub(r'^version: "[\d.]+"$', 'version: "99.0.0"', config.read_text(), flags=re.M))
+        with self.assertRaisesRegex(ValueError, "Dockerfile and config.yaml versions differ"):
             plan(self.root, "v4.2.7", "sha256:" + "a" * 64)
 
 
