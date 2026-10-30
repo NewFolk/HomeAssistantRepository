@@ -9,7 +9,7 @@ NGINX_PID=""
 AUTH_PID=""
 
 # ShellCheck cannot infer that this function is invoked by the EXIT trap.
-# shellcheck disable=SC2317
+# shellcheck disable=SC2317,SC2329
 cleanup() {
     trap - EXIT INT TERM
 
