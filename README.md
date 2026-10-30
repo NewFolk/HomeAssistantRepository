@@ -15,6 +15,7 @@ This repository contains custom Home Assistant add-ons.
   - Google Workspace MCP server for Home Assistant OS.
   - Based on: `taylorwilsdon/google_workspace_mcp`
   - Runtime package: `workspace-mcp` (inside add-on container)
+  - Automatic tested runtime releases for `amd64` and `aarch64`, including upgrade checks.
   - No separate MCP host/VM required on this stage.
 
 ## Add this repository to Home Assistant

@@ -9,11 +9,33 @@ Home Assistant add-on that runs [`workspace-mcp`](https://github.com/taylorwilsd
 - OAuth 2.1 compatible HTTP endpoint for MCP clients (`/mcp`)
 - Scope-plane interop for MCP clients that request `mcp:tools`
 
-Release 0.2.8 uses Python 3.14, workspace-mcp 1.11.1, FastMCP 4.1.4, and MCP 2.3.0.
+Current add-on release: `0.2.9`.
+Runtime: Python `3.14`, workspace-mcp `1.11.1`, FastMCP `4.1.4`, MCP `2.3.0`.
 CI builds both supported architectures and checks startup, OAuth discovery/client
-registration, scope filtering, and registration persistence after container
-recreation. These checks use synthetic credentials and do not replace a real
-Google sign-in, tool call, or refresh-token rotation test on Home Assistant.
+registration, scope filtering, real token rotation/retry handling with a mocked
+Google transport, and registration persistence after container recreation and
+upgrading from the published image. These checks use synthetic credentials and
+do not replace a real Google sign-in, tool call, or Home Assistant integration test.
+
+## Automatic releases
+
+The repository checks daily at 08:17 UTC for new stable `workspace-mcp`, FastMCP,
+and MCP releases and a refreshed digest of the current Python slim image.
+Stable three-part package versions, including major/minor upgrades, are eligible;
+prereleases, yanked candidates and downgrades are excluded. The Python major/minor
+branch stays fixed until separately reviewed. The updater changes pinned runtime
+versions, the HA add-on version, this release summary and the changelog together.
+
+An update is published automatically only after both native architecture builds,
+the OAuth/runtime and published-image upgrade tests, and the rest of repository
+CI succeed on its exact commit. A failed update stays in a PR and does not replace
+the published version. The updater does not rewrite compatibility code or disable
+failing checks; API or behavioral changes may need a maintained adaptation.
+Its explicit CI call and merge need no manual approval of GitHub's duplicate PR
+workflow. No personal token is required.
+
+Publishing an update to this repository and installing it on Home Assistant are
+separate actions. Automatic installation depends on that HA instance's settings.
 
 ## Notes
 

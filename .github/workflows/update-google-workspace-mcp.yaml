@@ -1,0 +1,104 @@
+name: Update Google Workspace MCP
+
+on:
+  schedule:
+    - cron: "17 8 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: update-google-workspace-mcp
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      changed: ${{ steps.update.outputs.changed }}
+      sha: ${{ steps.publish.outputs.sha }}
+      base: ${{ steps.publish.outputs.base }}
+      pr: ${{ steps.publish.outputs.pr }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Synchronize stable runtime releases and the pinned Python image
+        id: update
+        run: python3 scripts/update_google_workspace_mcp.py
+      - name: Publish update PR
+        if: steps.update.outputs.changed == 'true'
+        id: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          UPDATE_TARGET: ${{ steps.update.outputs.target }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="$(git rev-parse HEAD)"
+          branch="automation/google-workspace-mcp-${UPDATE_TARGET}-${base:0:12}"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          gh auth setup-git
+          # Reuse an identical attempt without overwriting anyone's edits.
+          if gh api "repos/${GH_REPO}/git/ref/heads/${branch}" >/dev/null 2>&1; then
+            git fetch origin "${branch}"
+            git diff --exit-code FETCH_HEAD -- .
+            sha="$(git rev-parse FETCH_HEAD)"
+          else
+            git checkout -b "${branch}"
+            git add google_workspace_mcp/Dockerfile google_workspace_mcp/config.yaml google_workspace_mcp/README.md google_workspace_mcp/CHANGELOG.md
+            git diff --cached --check
+            git commit -m "Update Google Workspace MCP runtime to ${UPDATE_TARGET}"
+            git push origin "HEAD:refs/heads/${branch}"
+            sha="$(git rev-parse HEAD)"
+          fi
+          pr="$(gh pr list --head "${branch}" --base main --state open --json number --jq '.[0].number // empty')"
+          if [ -z "${pr}" ]; then
+            printf 'Updates runtime package pins, the Python image digest, and HA release metadata together.\n\nThe updater runs complete reusable CI and both architecture upgrade tests against the exact published base before merging.\n\nValidation: %s/%s/actions/runs/%s\n' "${GITHUB_SERVER_URL}" "${GH_REPO}" "${GITHUB_RUN_ID}" > /tmp/update-body.md
+            url="$(gh pr create --head "${branch}" --base main --title "Update Google Workspace MCP runtime to ${UPDATE_TARGET}" --body-file /tmp/update-body.md)"
+            pr="${url##*/}"
+          fi
+          echo "sha=${sha}" >> "${GITHUB_OUTPUT}"
+          echo "base=${base}" >> "${GITHUB_OUTPUT}"
+          echo "pr=${pr}" >> "${GITHUB_OUTPUT}"
+
+  validate:
+    needs: prepare
+    if: needs.prepare.outputs.changed == 'true'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/lint.yaml
+    with:
+      ref: ${{ needs.prepare.outputs.sha }}
+      google_workspace_baseline_ref: ${{ needs.prepare.outputs.base }}
+
+  merge:
+    needs: [prepare, validate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Merge only the tested commit against the unchanged main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TESTED_SHA: ${{ needs.prepare.outputs.sha }}
+          BASE_SHA: ${{ needs.prepare.outputs.base }}
+          PR_NUMBER: ${{ needs.prepare.outputs.pr }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/${GH_REPO}/git/ref/heads/main" --jq .object.sha)" = "${BASE_SHA}"
+          test "$(gh pr view "${PR_NUMBER}" --json baseRefName --jq .baseRefName)" = main
+          gh pr merge "${PR_NUMBER}" --squash --delete-branch --match-head-commit "${TESTED_SHA}"
+          echo "Merged tested Google Workspace MCP update PR #${PR_NUMBER}" >> "${GITHUB_STEP_SUMMARY}"
