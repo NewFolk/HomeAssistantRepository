@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.14-slim@sha256:cd89c30eda26ee911a4611b18680086e0ea42e6f5f8cbe653d07fa7958c9cec8
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -12,7 +12,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir workspace-mcp==1.11.1
+    && pip install --no-cache-dir workspace-mcp==1.11.1 fastmcp==4.1.4 mcp==2.3.0
 
 COPY run.sh /run.sh
 COPY patches/sitecustomize.py /opt/google_workspace_mcp_patch/sitecustomize.py

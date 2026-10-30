@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.8
+
+- Upgrade to Python 3.14 with a pinned base image digest.
+- Pin the tested FastMCP and MCP versions used by the OAuth compatibility hooks.
+- Build and smoke-test both supported architectures in CI, including OAuth client registration, scope filtering, and registration persistence after container recreation.
+
 ## 0.2.7
 
 - Remove redundant default metadata fields.

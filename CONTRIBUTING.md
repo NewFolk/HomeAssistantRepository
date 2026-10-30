@@ -23,9 +23,19 @@ docker build --platform linux/amd64 -t local/openlist-addon:test ./openlist
 upstream_version="$(sed -nE 's|^FROM .*openlist:(v[^@]+)@sha256:.*$|\1|p' openlist/Dockerfile)"
 ./openlist/tests/smoke.sh local/openlist-addon:test "${upstream_version}"
 python3 openlist/tests/ingress-auth-smoke.py local/openlist-addon:test
+docker build -t local/google-workspace-mcp:test ./google_workspace_mcp
+python3 google_workspace_mcp/tests/smoke.py local/google-workspace-mcp:test
 ```
 
 The smoke test builds confidence that the container starts, becomes healthy, serves its direct UI, rewrites the simulated Home Assistant Ingress path for frontend assets and API calls, reports the expected upstream version, and reuses its persistent data. It does not replace testing inside Home Assistant.
+
+Google Workspace MCP is built and smoke-tested on native amd64 and aarch64 runners.
+Its separate test uses synthetic OAuth credentials to check the installed Python,
+package dependencies, actual scope-filtering hooks, discovery, client registration,
+rejection of unsupported scopes and unauthenticated MCP requests, and registration
+persistence across container recreation. It does not sign in to Google, call a
+Google tool, or exercise real refresh-token rotation; those still need an
+authenticated integration check when changing OAuth behavior.
 
 ## Supervisor option persistence contract
 
@@ -62,7 +72,7 @@ CI builds the add-on linter from pinned upstream commit `b9cfd1bc62ba60d2c4fc963
 
 The `Update OpenList` workflow checks the latest stable upstream release daily at 07:23 UTC and can also be run manually in Actions. It pins the image digest, checks for a linux/amd64 image, increments the HA package patch version, and updates documentation and changelog together.
 
-Only newer releases in the same upstream major/minor series are automatic. Prereleases, downgrades, and major/minor upgrades are rejected. Other Dependabot PRs still require review; in particular, the current CI does not build or run Google Workspace MCP, so a green check does not validate a Python runtime upgrade.
+Only newer releases in the same upstream major/minor series are automatic. Prereleases, downgrades, and major/minor upgrades are rejected. Other Dependabot PRs still require review. Python runtime upgrades must pass Google Workspace MCP's own build and smoke tests; OpenList checks alone do not validate that runtime.
 
 The workflow opens a PR, calls the complete CI workflow on its exact commit with read-only permissions, then merges only if validation succeeds and main has not changed. Failed runs leave the PR open. The explicit reusable CI call is the validation gate and runs automatically without PR workflow approval. GitHub can also create a separate approval-required `pull_request` CI run for PRs opened with GITHUB_TOKEN; that duplicate run does not need manual approval for the updater to validate and merge its tested commit. See [GITHUB_TOKEN workflow triggers](https://docs.github.com/en/actions/concepts/security/github_token). No personal access token is needed. Repository Actions settings must allow GitHub Actions to create pull requests.
 

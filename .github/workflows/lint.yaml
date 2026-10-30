@@ -92,6 +92,32 @@ jobs:
       - name: Run ShellCheck
         run: shellcheck openlist/run.sh openlist/prepare-config.sh google_workspace_mcp/run.sh openlist/tests/smoke.sh
 
+  google-workspace-mcp:
+    name: Google Workspace MCP (${{ matrix.arch }})
+    needs: [lint, shell]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
+
+      - name: Build image
+        run: docker build --tag local/google-workspace-mcp:test ./google_workspace_mcp
+
+      - name: Test runtime and OAuth contracts with synthetic credentials
+        run: python3 google_workspace_mcp/tests/smoke.py local/google-workspace-mcp:test
+
   openlist:
     name: Build and smoke test (${{ matrix.arch }})
     needs:
