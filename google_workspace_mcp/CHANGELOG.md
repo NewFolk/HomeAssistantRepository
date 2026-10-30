@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.10
+
+- Update workspace-mcp from `1.11.1` to `2.2.1`.
+
 ## 0.2.9
 
 - Preserve the existing encrypted FastMCP storage location when upstream adds a separate disk backend.
