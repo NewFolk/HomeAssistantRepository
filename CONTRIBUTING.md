@@ -15,10 +15,55 @@ Before opening a pull request, run the same checks used by CI when the required 
 
 ```bash
 git diff --check
-sh -n openlist/run.sh google_workspace_mcp/run.sh
-shellcheck openlist/run.sh google_workspace_mcp/run.sh openlist/tests/smoke.sh
+python3 -m pip install -r openlist/tests/requirements.txt
+sh -n openlist/run.sh openlist/prepare-config.sh google_workspace_mcp/run.sh
+shellcheck openlist/run.sh openlist/prepare-config.sh google_workspace_mcp/run.sh openlist/tests/smoke.sh
+python3 -m unittest discover -s scripts -p 'test_*.py'
 docker build --platform linux/amd64 -t local/openlist-addon:test ./openlist
-./openlist/tests/smoke.sh local/openlist-addon:test v4.2.2
+upstream_version="$(sed -nE 's|^FROM .*openlist:(v[^@]+)@sha256:.*$|\1|p' openlist/Dockerfile)"
+./openlist/tests/smoke.sh local/openlist-addon:test "${upstream_version}"
+python3 openlist/tests/ingress-auth-smoke.py local/openlist-addon:test
 ```
 
-The smoke test builds confidence that the container starts, becomes healthy, serves HTTP, reports the expected upstream version, and reuses its persistent data. It does not replace testing inside Home Assistant.
+The smoke test builds confidence that the container starts, becomes healthy, serves its direct UI, rewrites the simulated Home Assistant Ingress path for frontend assets and API calls, reports the expected upstream version, and reuses its persistent data. It does not replace testing inside Home Assistant.
+
+## Supervisor option persistence contract
+
+Use real supported schemas: `ingress_auto_login: bool` and `openlist: str`, with matching defaults. Advanced settings are stored as a YAML/JSON string (`openlist: |`), decoded by `parse-options.py` with PyYAML's safe loader into a private temporary JSON document, then merged by the existing jq filter. Never rewrite Supervisor's `/data/options.json`, dump its values on parse failure, or replace the persistent OpenList source with overrides.
+
+After upstream becomes ready, `parse-options.py --verify` walks the user-supplied paths and compares them with the working config rewritten by OpenList's typed decoder. Only then does Ingress start. This must not be reduced to comparing our own merge output: that would falsely accept unknown keys. The actual-image smoke test deliberately supplies a misspelled field to guard this upstream rewrite contract on upgrades. Object defaults may be added, including inside arrays; user-provided values/types must match. Log field paths, not values. This is not a guarantee of every setting's runtime semantics.
+
+`schema: false` is **not** an arbitrary-dictionary escape hatch. In Supervisor 2026.10.2, `AppModel.options_schema()` turns boolean schemas into `{}` and `AppOptions` drops every unrecognized key during both saving and writing options. Empty nested schemas similarly discard unknown nested keys. A container test that writes options.json directly misses this boundary.
+
+CI checks out Supervisor commit `c9e000812b7131fa1f1b72b483555083929d7f83` (2026.10.2) and runs `openlist/tests/supervisor-options.py` with Python 3.14 and its pinned PyYAML/voluptuous versions. The test executes the actual upstream option validator and schema factory, stubbing only unrelated hardware/CoreSys imports. It reproduces the false-schema data loss, checks typed-schema JSON save/reload including the auto-login switch, then feeds validated settings into the built image and recreates it after saves made while running and stopped. Verify options are unchanged, settings apply/remove and the persistent source checksum remains unchanged. This contract test is not a running Supervisor REST server or frontend test; real HA Save/reload still needs user confirmation.
+
+To run it locally with a checkout of the pinned Supervisor revision and the built image:
+
+```bash
+python3.14 -m pip install -r openlist/tests/requirements.txt
+python3.14 openlist/tests/supervisor-options.py /path/to/supervisor local/openlist-addon:test
+```
+
+## Ingress authentication trust boundary
+
+`ingress_auto_login` defaults to false. When enabled, Supervisor's `panel_admin: true` default is a security boundary, not just a sidebar preference. Keep that property omitted (the linter rejects redundant defaults); never set it to false. Supervisor 2026.10.2 is the first supported version: [upstream enforcement change](https://github.com/home-assistant/supervisor/pull/7308). The add-on checks the stable Supervisor version through the already permitted `/info` endpoint before starting auto-login; do not remove this check or substitute trust in a client-provided role/name header. No `hassio_api`, `homeassistant_api`, `auth_api`, host networking or privileged role is needed.
+
+Follow [HA's Ingress guide](https://contributors.home-assistant.io/apps/guides/ingress/) and its Supervisor-only access model (also used by [Node-RED](https://github.com/hassio-addons/app-node-red/blob/main/node-red/rootfs/etc/nginx/templates/ingress.gtpl)). HA/Supervisor owns browser-session authentication and admin-panel authorization. The [HA frontend](https://github.com/home-assistant/frontend/blob/dev/src/data/hassio/ingress.ts) creates the Ingress cookie with `SameSite=Strict` and `Secure` on HTTPS; [Supervisor](https://github.com/home-assistant/supervisor/blob/c9e000812b7131fa1f1b72b483555083929d7f83/supervisor/api/ingress.py) validates the session and enforces `panel_admin` before proxying. Do not treat a browser header, external hostname or Ingress path alone as authentication.
+
+nginx's internal auth subrequest forwards only its actual peer IP and Supervisor's HA user ID to a loopback-only Python helper, with original request headers disabled. The helper reads the existing admin token from SQLite in read-only mode, requires an active OpenList administrator, and returns that token only to the internal nginx subrequest. This is an OpenList credential adapter, not a second HA session system. nginx replaces the client's Authorization header on the upstream request; it does not issue a browser session. Do not expose port 8098, turn the internal auth location into a public endpoint, log the returned token or replace the native frontend's `/api/me` request with a browser-token injection.
+
+Do not add an independent Origin/Fetch Metadata allowlist on top of authenticated Ingress. The 1.4.2 policy failed behind proxies stripping Origin and was removed in 1.4.3 at the user's request to use the standard Ingress boundary. This is delegation to HA's session/security implementation, not a claim that requests from arbitrary peers or unsigned client headers are safe. Do not request broad Core API permission to discover an external URL. Never log request/header values or put actual Ingress URLs in source, fixtures or reports.
+
+Helper tests cover version rejection, opt-in configuration, read-only access, rotation and identity/peer checks. The separate auth smoke uses a mock `/info` server at Supervisor's real IP on an isolated Docker network, exercises actual OpenList admin writes and filesystem access without browser-origin headers, rejects a second untrusted container even with forged identity/peer/browser headers, tests old-Supervisor failure and restores password mode on the same data directory. The mock does **not** implement HA sessions or prove HA's admin/non-admin authorization or cookie behavior. Before marking the feature stable, test real HA with admin/non-admin accounts, password mode, logout, token rotation, WebSockets, uploads and external HTTPS access.
+
+## Automated OpenList patch releases
+
+CI builds the add-on linter from pinned upstream commit `b9cfd1bc62ba60d2c4fc96317b5f7ada5923f4a7` without modifying its schema or disabling checks. Update this pinned checkout manually when adopting a new linter release.
+
+The `Update OpenList` workflow checks the latest stable upstream release daily at 07:23 UTC and can also be run manually in Actions. It pins the image digest, checks for a linux/amd64 image, increments the HA package patch version, and updates documentation and changelog together.
+
+Only newer releases in the same upstream major/minor series are automatic. Prereleases, downgrades, and major/minor upgrades are rejected. Other Dependabot PRs still require review; in particular, the current CI does not build or run Google Workspace MCP, so a green check does not validate a Python runtime upgrade.
+
+The workflow opens a PR, calls the complete CI workflow on its exact commit with read-only permissions, then merges only if validation succeeds and main has not changed. Failed runs leave the PR open. The explicit reusable CI call is the validation gate and runs automatically without PR workflow approval. GitHub can also create a separate approval-required `pull_request` CI run for PRs opened with GITHUB_TOKEN; that duplicate run does not need manual approval for the updater to validate and merge its tested commit. See [GITHUB_TOKEN workflow triggers](https://docs.github.com/en/actions/concepts/security/github_token). No personal access token is needed. Repository Actions settings must allow GitHub Actions to create pull requests.
+
+Merging publishes an add-on update to the repository. Installation on a Home Assistant instance is controlled separately by that instance's update settings.

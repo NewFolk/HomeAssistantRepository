@@ -1,5 +1,70 @@
 # Changelog
 
+## 1.4.3
+
+- Follow Home Assistant's standard Ingress authentication boundary instead of maintaining an extra Origin/Fetch Metadata policy in the add-on.
+- Remove the custom browser-origin checks and header adapter that rejected authenticated requests when a reverse proxy stripped Origin.
+- Keep Supervisor-only automatic credentials, trusted HA identity, the minimum Supervisor/admin-panel enforcement, server-side OpenList tokens and normal direct-port authentication.
+- Test real admin writes and filesystem access with Origin/Fetch Metadata absent, plus rejection of a separate untrusted container with forged headers.
+- Preserve HA YAML read-back validation, configuration, passwords, database, mounts and unpublished port defaults.
+
+## 1.4.2
+
+- Verify every HA-supplied OpenList path and value against the working configuration after OpenList has loaded and normalized it, before opening Ingress.
+- Log verified field paths without values; reject ignored/misspelled keys, read-back mismatches and duplicate YAML keys instead of silently accepting them.
+- Support same-origin browser requests through HTTPS-terminating proxies using Fetch Metadata, without a new URL option or Home Assistant Core API permission.
+- Keep Supervisor/admin checks, strict Origin fallback, cross-origin rejection and normal direct-port authentication; log safe rejection reasons.
+- Show the add-on version and explicit enabled/disabled auto-login status at startup.
+- Extend real-container tests for all five persistence flags, spelling errors, recovery, proxy-rewritten origins and forged metadata headers.
+
+## 1.4.1
+
+- Fix HA options silently resetting on Save: replace the empty `schema: false` contract with supported boolean/string fields.
+- Store arbitrary OpenList configuration as a YAML/JSON text block (`openlist: |`), preserving numbers, booleans and nesting after parsing.
+- Keep Supervisor-owned options.json, existing OpenList configuration, database and passwords unchanged.
+- Document re-entering previously discarded settings; no reinstall or data deletion is needed.
+- Reproduce the old failure using pinned Supervisor validation code and test validated saves while running/stopped across container recreation.
+- Remove the unnecessary linter schema override and run the pinned linter unmodified.
+
+## 1.4.0
+
+- Add opt-in `ingress_auto_login` for the existing OpenList administrator through Home Assistant Ingress.
+- Require Supervisor 2026.10.2+ and an admin-only panel so non-admin HA users cannot inherit OpenList admin rights.
+- Keep upstream credentials server-side, reject spoofed/missing Ingress identity and cross-origin writes, and preserve normal direct-port authentication.
+- Keep the direct port disabled by default, existing passwords/settings unchanged, and provide a simple opt-out.
+- Test authentication boundaries, the Supervisor version gate, rollback and existing persistence in CI.
+- Document OpenList 4.2.7's first-run setup wizard and require an initialized administrator before enabling auto-login.
+
+## 1.3.0
+
+- Accept arbitrary OpenList config.json overrides in Home Assistant's YAML configuration under `openlist`.
+- Merge nested settings without overwriting the persistent source configuration, database, or generated keys.
+- Remove overrides cleanly when settings are removed from Home Assistant.
+- Reject malformed options and overrides of add-on-managed network/database fields with startup errors.
+- Test applying/removing task persistence settings across recreated containers.
+
+## 1.2.2
+
+- Update OpenList from `v4.2.4` to `v4.2.7` with a pinned image digest.
+
+## 1.2.1
+
+- Add the official OpenList icon and logo to the Home Assistant add-on presentation.
+- Document the logo attribution and its CC BY-NC-SA 4.0 license.
+
+## 1.2.0
+
+- Fix the blank OpenList page when opened through Home Assistant Ingress.
+- Add an Ingress-aware nginx proxy that rewrites the dynamic Home Assistant path.
+- Keep optional direct access available at `/openlist/` on port `5244`.
+- Test the rewritten frontend configuration, JavaScript asset, API, and persistence in CI.
+
+## 1.1.1
+
+- Update OpenList from `v4.2.2` to `v4.2.4`.
+- Derive CI release expectations from the add-on metadata and pinned image tag.
+- Improve smoke-test diagnostics when an upstream version does not match.
+
 ## 1.1.0
 
 - Pin OpenList to `v4.2.2` and its immutable container manifest digest.

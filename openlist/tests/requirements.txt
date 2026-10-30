@@ -1,0 +1,3 @@
+# Match the pinned Supervisor 2026.10.2 validator dependencies.
+PyYAML==6.0.3
+voluptuous==0.16.0
