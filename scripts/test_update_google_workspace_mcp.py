@@ -2,7 +2,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from update_google_workspace_mcp import latest_stable, plan, read_pins, require_platforms
+from update_google_workspace_mcp import latest_python, latest_stable, plan, read_pins, require_platforms
 
 
 class GoogleUpdateTests(unittest.TestCase):
@@ -86,6 +86,21 @@ class GoogleUpdateTests(unittest.TestCase):
             require_platforms(manifest)
         manifest["manifests"].append({"platform": {"os": "linux", "architecture": "arm64"}})
         require_platforms(manifest)
+
+    def test_python_branch_upgrade_updates_all_release_metadata(self):
+        changes = plan(self.root, self.pins, "sha256:" + "b" * 64, "python:3.15-slim")
+        self.assertIn("FROM python:3.15-slim@", changes["google_workspace_mcp/Dockerfile"])
+        self.assertIn("Runtime: Python `3.15`", changes["google_workspace_mcp/README.md"])
+        self.assertIn("Update Python from `3.14` to `3.15`", changes["google_workspace_mcp/CHANGELOG.md"])
+        for invalid in ("python:3.13-slim", "python:3.16-rc-slim", "python:latest"):
+            with self.subTest(image=invalid), self.assertRaises(ValueError):
+                plan(self.root, self.pins, "sha256:" + "b" * 64, invalid)
+
+    def test_official_python_selection_excludes_prerelease_aliases(self):
+        source = "Tags: 3.14.1-slim, 3.14-slim\nTags: 3.15-slim, 3-slim, slim\nTags: 3.16-rc-slim\n"
+        self.assertEqual(latest_python(source), "python:3.15-slim")
+        with self.assertRaises(ValueError):
+            latest_python("Tags: 3.16-rc-slim\n")
 
 
 if __name__ == "__main__":

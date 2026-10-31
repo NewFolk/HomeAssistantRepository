@@ -20,10 +20,10 @@ do not replace a real Google sign-in, tool call, or Home Assistant integration t
 ## Automatic releases
 
 The repository checks daily at 08:17 UTC for new stable `workspace-mcp`, FastMCP,
-and MCP releases and a refreshed digest of the current Python slim image.
+and MCP releases and the latest stable Python slim branch/image digest.
 Stable three-part package versions, including major/minor upgrades, are eligible;
-prereleases, yanked candidates and downgrades are excluded. The Python major/minor
-branch stays fixed until separately reviewed. The updater changes pinned runtime
+prereleases, yanked candidates and downgrades are excluded. Python major/minor
+branch upgrades are automatic after the same architecture and migration tests. The updater changes pinned runtime
 versions, the HA add-on version, this release summary and the changelog together.
 
 An update is published automatically only after both native architecture builds,
@@ -31,6 +31,7 @@ the OAuth/runtime and published-image upgrade tests, and the rest of repository
 CI succeed on its exact commit. A failed update stays in a PR and does not replace
 the published version. The updater does not rewrite compatibility code or disable
 failing checks; API or behavioral changes may need a maintained adaptation.
+If main changes during validation, a fresh run is queued automatically.
 Its explicit CI call and merge need no manual approval of GitHub's duplicate PR
 workflow. No personal token is required.
 

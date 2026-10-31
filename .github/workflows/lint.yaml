@@ -8,6 +8,12 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      google_workspace_baseline_ref:
+        description: Published baseline for upgrade validation
+        required: false
+        default: ""
+        type: string
   workflow_call:
     inputs:
       ref:

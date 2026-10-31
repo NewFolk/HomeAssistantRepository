@@ -82,6 +82,9 @@ jobs:
 
   merge:
     needs: [prepare, validate]
+    concurrency:
+      group: automatic-repository-merge
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -102,3 +105,33 @@ jobs:
           test "$(gh pr view "${PR_NUMBER}" --json baseRefName --jq .baseRefName)" = main
           gh pr merge "${PR_NUMBER}" --squash --delete-branch --match-head-commit "${TESTED_SHA}"
           echo "Merged tested Google Workspace MCP update PR #${PR_NUMBER}" >> "${GITHUB_STEP_SUMMARY}"
+
+  refresh:
+    needs: [prepare, validate, merge]
+    if: ${{ always() && needs.prepare.outputs.changed == 'true' && needs.validate.result == 'success' && needs.merge.result == 'failure' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Automatically revalidate against an advanced main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          BASE_SHA: ${{ needs.prepare.outputs.base }}
+          TESTED_SHA: ${{ needs.prepare.outputs.sha }}
+          PR_NUMBER: ${{ needs.prepare.outputs.pr }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          current="$(gh api "repos/${GH_REPO}/git/ref/heads/main" --jq .object.sha)"
+          if [ "${current}" != "${BASE_SHA}" ]; then
+            gh workflow run update-google-workspace-mcp.yaml --ref main
+            state="$(gh api "repos/${GH_REPO}/pulls/${PR_NUMBER}" --jq '.state + ":" + .head.sha')"
+            if [ "${state}" = "open:${TESTED_SHA}" ]; then
+              gh pr close "${PR_NUMBER}" --delete-branch
+            fi
+            echo "Main advanced; a fresh full validation has been queued." >> "${GITHUB_STEP_SUMMARY}"
+          fi

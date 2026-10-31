@@ -55,34 +55,56 @@ def require_platforms(manifest):
         raise ValueError("Python image must support linux/amd64 and linux/arm64")
 
 
+def python_branch(image):
+    match = re.fullmatch(r"python:(\d+)\.(\d+)-slim", image)
+    if match is None:
+        raise ValueError("Expected a stable Python major.minor slim tag")
+    return tuple(map(int, match.groups()))
+
+
+def latest_python(source):
+    tags = [tag.strip() for line in source.splitlines() if line.startswith("Tags: ")
+            for tag in line[6:].split(",")]
+    images = [f"python:{tag}" for tag in tags if re.fullmatch(r"\d+\.\d+-slim", tag)]
+    if not images:
+        raise ValueError("No stable Python slim branch found")
+    return max(images, key=python_branch)
+
+
 def runtime_line(python, pins):
     return (f"Runtime: Python `{python}`, workspace-mcp `{pins['workspace-mcp']}`, "
             f"FastMCP `{pins['fastmcp']}`, MCP `{pins['mcp']}`.")
 
 
-def plan(root, pins, digest):
+def plan(root, pins, digest, python_image=None):
     if set(pins) != set(PACKAGES):
         raise ValueError("All runtime package pins are required")
     if not re.fullmatch(r"sha256:[a-f0-9]{64}", digest):
         raise ValueError("Invalid image digest")
     dockerfile = (root / ADDON / "Dockerfile").read_text()
     image, python, old_digest, old_pins = read_pins(dockerfile)
+    python_image = python_image or image
+    if python_branch(python_image) < python_branch(image):
+        raise ValueError("Refusing a Python downgrade")
+    new_python = python_image.removeprefix("python:").removesuffix("-slim")
     for name in PACKAGES:
         if version(pins[name]) < version(old_pins[name]):
             raise ValueError("Refusing a package downgrade")
-    if pins == old_pins and digest == old_digest:
+    if pins == old_pins and digest == old_digest and python_image == image:
         return {}
     config = (root / ADDON / "config.yaml").read_text()
     old_package = re.search(r'^version: "([\d.]+)"$', config, re.M)[1]
     major, minor, patch = version(old_package)
     package = f"{major}.{minor}.{patch + 1}"
-    updated_docker = dockerfile.replace(f"{image}@{old_digest}", f"{image}@{digest}", 1)
+    updated_docker = dockerfile.replace(f"{image}@{old_digest}", f"{python_image}@{digest}", 1)
     notes = []
     for name in PACKAGES:
         updated_docker = updated_docker.replace(f"{name}=={old_pins[name]}", f"{name}=={pins[name]}", 1)
         if pins[name] != old_pins[name]:
             notes.append(f"- Update {name} from `{old_pins[name]}` to `{pins[name]}`.")
-    if digest != old_digest:
+    if python_image != image:
+        notes.append(f"- Update Python from `{python}` to `{new_python}` with a pinned image digest.")
+    elif digest != old_digest:
         notes.append(f"- Refresh the pinned Python {python} base image digest.")
     readme = (root / ADDON / "README.md").read_text()
     old_release = f"Current add-on release: `{old_package}`."
@@ -90,7 +112,7 @@ def plan(root, pins, digest):
     if readme.count(old_release) != 1 or readme.count(old_runtime) != 1:
         raise ValueError("README release/runtime metadata differs from the package pins")
     readme = readme.replace(old_release, f"Current add-on release: `{package}`.", 1)
-    readme = readme.replace(old_runtime, runtime_line(python, pins), 1)
+    readme = readme.replace(old_runtime, runtime_line(new_python, pins), 1)
     changelog = (root / ADDON / "CHANGELOG.md").read_text()
     if not changelog.startswith("# Changelog\n"):
         raise ValueError("Missing changelog heading")
@@ -106,6 +128,9 @@ def plan(root, pins, digest):
 def main():
     root = Path(__file__).resolve().parents[1]
     image, _, _, old_pins = read_pins((root / ADDON / "Dockerfile").read_text())
+    with urlopen("https://raw.githubusercontent.com/docker-library/official-images/master/library/python", timeout=30) as response:
+        candidate_image = latest_python(response.read().decode())
+    image = max((image, candidate_image), key=python_branch)
     pins = {}
     for name in PACKAGES:
         with urlopen(f"https://pypi.org/pypi/{name}/json", timeout=30) as response:
@@ -120,10 +145,10 @@ def main():
         "docker", "buildx", "imagetools", "inspect", "--raw", f"{image}@{digest}",
     ], text=True))
     require_platforms(manifest)
-    changes = plan(root, pins, digest)
+    changes = plan(root, pins, digest, image)
     for name, content in changes.items():
         (root / name).write_text(content)
-    fingerprint = hashlib.sha256(json.dumps([pins, digest], sort_keys=True).encode()).hexdigest()[:12]
+    fingerprint = hashlib.sha256(json.dumps([pins, image, digest], sort_keys=True).encode()).hexdigest()[:12]
     target = f"v{pins['workspace-mcp']}-{fingerprint}"
     if os.environ.get("GITHUB_OUTPUT"):
         with open(os.environ["GITHUB_OUTPUT"], "a") as output:

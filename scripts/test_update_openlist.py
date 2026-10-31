@@ -46,8 +46,16 @@ class UpdateTests(unittest.TestCase):
                     (self.root / name).write_text(content)
                 self.assertEqual(plan(self.root, tag, "sha256:" + "b" * 64), {})
 
-    def test_reject_minor_major_and_prerelease(self):
-        for tag in ("v4.3.0", "v5.0.0", "v4.2.8-beta", "latest"):
+    def test_accept_minor_and_major_after_the_same_release_planning(self):
+        for tag in ("v4.3.0", "v5.0.0"):
+            with self.subTest(tag=tag):
+                changes = plan(self.root, tag, "sha256:" + "a" * 64)
+                self.assertEqual(len(changes), 6)
+                self.assertIn(f"openlist:{tag}@sha256:", changes["openlist/Dockerfile"])
+                self.assertIn(tag, changes["openlist/DOCS.md"])
+
+    def test_reject_prerelease(self):
+        for tag in ("v4.2.8-beta", "latest"):
             with self.subTest(tag=tag), self.assertRaises(ValueError):
                 plan(self.root, tag, "sha256:" + "a" * 64)
 

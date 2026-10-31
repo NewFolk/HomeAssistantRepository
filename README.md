@@ -2,6 +2,9 @@
 
 This repository contains custom Home Assistant add-ons.
 
+Stable add-on, Python runtime, and Dependabot GitHub Actions updates are published
+automatically after full CI, including major releases. Failed tests block publication.
+
 ## Available add-ons
 
 - **OpenList** (`openlist`)
