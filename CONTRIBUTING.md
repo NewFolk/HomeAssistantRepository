@@ -68,13 +68,13 @@ Do not add an independent Origin/Fetch Metadata allowlist on top of authenticate
 
 Helper tests cover version rejection, opt-in configuration, read-only access, rotation and identity/peer checks. The separate auth smoke uses a mock `/info` server at Supervisor's real IP on an isolated Docker network, exercises actual OpenList admin writes and filesystem access without browser-origin headers, rejects a second untrusted container even with forged identity/peer/browser headers, tests old-Supervisor failure and restores password mode on the same data directory. The mock does **not** implement HA sessions or prove HA's admin/non-admin authorization or cookie behavior. Before marking the feature stable, test real HA with admin/non-admin accounts, password mode, logout, token rotation, WebSockets, uploads and external HTTPS access.
 
-## Automated OpenList patch releases
+## Automated OpenList releases
 
 CI builds the add-on linter from pinned upstream commit `b9cfd1bc62ba60d2c4fc96317b5f7ada5923f4a7` without modifying its schema or disabling checks. Update this pinned checkout manually when adopting a new linter release.
 
-The `Update OpenList` workflow checks the latest stable upstream release daily at 07:23 UTC and can also be run manually in Actions. It pins the image digest, checks for a linux/amd64 image, increments the HA package patch version, and updates documentation and changelog together.
+The `Update OpenList` workflow checks the latest stable upstream release daily at 07:23 UTC and can also be run manually in Actions. Stable patch, minor and major releases are eligible. It pins the image digest, checks for a linux/amd64 image, increments the HA package patch version, and updates documentation and changelog together.
 
-Only newer releases in the same upstream major/minor series are automatic. Prereleases, downgrades, and major/minor upgrades are rejected. Other Dependabot PRs still require review. Python runtime upgrades must pass Google Workspace MCP's own build and smoke tests; OpenList checks alone do not validate that runtime.
+Prereleases and downgrades are excluded. Every eligible release must pass the complete runtime CI; there is no manual major/minor approval gate. Python runtime upgrades must pass Google Workspace MCP's own build and upgrade tests; OpenList checks alone do not validate that runtime.
 
 The workflow opens a PR, calls the complete CI workflow on its exact commit with read-only permissions, then merges only if validation succeeds and main has not changed. Failed runs leave the PR open. The explicit reusable CI call is the validation gate and runs automatically without PR workflow approval. GitHub can also create a separate approval-required `pull_request` CI run for PRs opened with GITHUB_TOKEN; that duplicate run does not need manual approval for the updater to validate and merge its tested commit. See [GITHUB_TOKEN workflow triggers](https://docs.github.com/en/actions/concepts/security/github_token). No personal access token is needed. Repository Actions settings must allow GitHub Actions to create pull requests.
 
@@ -85,8 +85,8 @@ Merging publishes an add-on update to the repository. Installation on a Home Ass
 `Update Google Workspace MCP` runs daily at 08:17 UTC and supports manual dispatch.
 The metadata-only prepare job selects the highest stable three-part versions of
 workspace-mcp, FastMCP and MCP with non-yanked wheels on PyPI. It also refreshes the
-immutable Python image digest without changing the existing Python major/minor
-tag and verifies linux/amd64 and linux/arm64 manifests. It never installs or executes
+latest stable Python major/minor slim tag from Docker's official image manifest,
+pins its immutable digest, and verifies linux/amd64 and linux/arm64 manifests. It never installs or executes
 the candidate packages with write permissions. Dockerfile pins, add-on version,
 README release/runtime lines and changelog are updated as one release.
 
@@ -94,8 +94,32 @@ The updater follows the same PR/exact-commit/read-only-CI/unchanged-main merge g
 as OpenList. Its reusable CI additionally receives the exact published base SHA
 for both native Google upgrade tests. Only a successful full validation can reach
 the merge job; failure leaves a reviewable PR and the published release unchanged.
-Package major/minor releases are eligible because the user authorized tested
-runtime upgrades. Python branch upgrades and compatibility-code adaptations remain
+Package and Python branch major/minor releases are eligible because the user
+authorized broad automated upgrades. Compatibility-code adaptations remain
 maintainer changes with their own validation. The updater never edits tests or
 runtime hooks to make an incompatible candidate pass. Docker Dependabot for this
 add-on is replaced by this coordinated updater; GitHub Actions Dependabot remains.
+
+## Automatic Dependabot merging
+
+Dependabot checks all configured GitHub Actions daily at 06:29 UTC, including
+weekends, with no cooldown or major/minor/patch restrictions. `Merge Dependabot
+updates` reacts to completed CI and scans every 15 minutes. All same-repository,
+non-draft Dependabot PRs targeting the default branch are eligible; neither a
+dependency allowlist nor SHA-only references are required. Major releases and
+tag-based updates use the same full-CI gate.
+
+The controller is downloaded only from the trusted default branch and never
+executes PR code with its write token. It refreshes a stale Dependabot branch,
+then reuses complete successful CI for the exact head or dispatches CI on a
+temporary reference to that head. Explicit dispatch avoids approval-required
+duplicate bot PR runs and includes published-baseline upgrade checks. All jobs
+must succeed; failed jobs get one automatic retry. The head and default branch
+are checked again before a SHA-guarded merge, followed by published-main CI.
+Conflicts or persistently failing tests remain visible without publishing them.
+
+All three publishers share a merge concurrency group. If main advances while an
+add-on update is being validated, its workflow automatically queues a fresh run
+and closes only the unchanged superseded attempt. No user approval, personal token,
+or running Codex session is needed for these GitHub workflows. HA installation
+and unrelated human/fork PRs retain their own controls.

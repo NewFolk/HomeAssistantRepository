@@ -1,4 +1,4 @@
-"""Synchronize patch releases with the HA package; never execute upstream code."""
+"""Synchronize stable releases with the HA package; never execute upstream code."""
 import json
 import os
 from pathlib import Path
@@ -20,8 +20,6 @@ def plan(root, tag, digest):
     old_tag = re.search(r"^FROM docker.io/openlistteam/openlist:(v[\d.]+)@sha256:[a-f0-9]{64}$", docker, re.M)[1]
     if version(tag) <= version(old_tag):
         return {}
-    if version(tag)[:2] != version(old_tag)[:2]:
-        raise ValueError("Major/minor OpenList upgrades require manual review")
     config = (root / "openlist/config.yaml").read_text()
     old_package = re.search(r'^version: "([\d.]+)"$', config, re.M)[1]
     major, minor, patch = version(old_package)
