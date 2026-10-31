@@ -25,12 +25,17 @@ class GitHub:
         args = ["gh", "api", "--method", method, f"repos/{self.repo}/{path}".rstrip("/")]
         if data is not None:
             args += ["--input", "-"]
-        result = subprocess.run(args, input=json.dumps(data) if data is not None else None,
-                                text=True, capture_output=True, check=False)
-        if result.returncode:
+        for attempt in range(3):
+            result = subprocess.run(args, input=json.dumps(data) if data is not None else None,
+                                    text=True, capture_output=True, check=False)
+            if not result.returncode:
+                return json.loads(result.stdout) if result.stdout.strip() else None
             match = re.search(r"HTTP (\d+)", result.stderr)
-            raise APIError(method, path, int(match[1]) if match else 0)
-        return json.loads(result.stdout) if result.stdout.strip() else None
+            status = int(match[1]) if match else 0
+            if method == "GET" and status in {429, 500, 502, 503, 504} and attempt < 2:
+                time.sleep(2 ** attempt)
+                continue
+            raise APIError(method, path, status)
 
     def open_prs(self):
         page = 1
@@ -136,7 +141,13 @@ def process(gh, number):
         return
     base, head = gh.head(), pr["head"]["sha"]
     if not gh.contains(base, head):
-        gh.refresh(number, head)
+        try:
+            gh.refresh(number, head)
+        except APIError as error:
+            if error.status != 403:
+                raise
+            report(f"PR #{number}: GitHub refused the branch refresh; waiting for Dependabot's automatic rebase")
+            return
         for _ in range(10):
             updated = gh.pr(number)
             if not eligible(updated, gh.repo, gh.default):
@@ -188,6 +199,10 @@ def ensure_main_ci(gh):
 
 def main():
     gh = GitHub(os.environ["GH_REPO"])
+    # Check old publication state before a merge starts a new CI run: GitHub may
+    # take a moment to list a freshly dispatched run, so checking afterward
+    # would dispatch the same published-head validation twice.
+    ensure_main_ci(gh)
     for item in gh.open_prs():
         if eligible(item, gh.repo, gh.default):
             try:
@@ -196,7 +211,6 @@ def main():
                 if error.status not in {409, 422}:
                     raise
                 report(f"PR #{item['number']}: branch changed or needs conflict resolution; publication is held")
-    ensure_main_ci(gh)
 
 
 if __name__ == "__main__":
