@@ -9,8 +9,8 @@ Home Assistant add-on that runs [`workspace-mcp`](https://github.com/taylorwilsd
 - OAuth 2.1 compatible HTTP endpoint for MCP clients (`/mcp`)
 - Scope-plane interop for MCP clients that request `mcp:tools`
 
-Current add-on release: `0.2.10`.
-Runtime: Python `3.14`, workspace-mcp `2.2.1`, FastMCP `4.1.4`, MCP `2.3.0`.
+Current add-on release: `0.2.11`.
+Runtime: Python `3.15`, workspace-mcp `2.3.0`, FastMCP `4.1.4`, MCP `2.3.0`.
 CI builds both supported architectures and checks startup, OAuth discovery/client
 registration, scope filtering, real token rotation/retry handling with a mocked
 Google transport, and registration persistence after container recreation and
