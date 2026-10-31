@@ -117,6 +117,10 @@ duplicate bot PR runs and includes published-baseline upgrade checks. All jobs
 must succeed; failed jobs get one automatic retry. The head and default branch
 are checked again before a SHA-guarded merge, followed by published-main CI.
 Conflicts or persistently failing tests remain visible without publishing them.
+If GitHub denies a branch refresh that would rewrite workflow files, the controller
+waits for Dependabot's own automatic rebase rather than requiring a separate token.
+The periodic scan also resumes validation when GitHub suppresses chained workflow
+callbacks. Transient metadata reads are retried; writes are not blindly repeated.
 
 All three publishers share a merge concurrency group. If main advances while an
 add-on update is being validated, its workflow automatically queues a fresh run

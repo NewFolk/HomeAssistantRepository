@@ -1,8 +1,9 @@
 import copy
+from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 
-from merge_dependabot import GitHub, all_jobs_passed, eligible, ensure_main_ci, latest_run, process
+from merge_dependabot import APIError, GitHub, all_jobs_passed, eligible, ensure_main_ci, latest_run, process
 
 
 class MergeTests(unittest.TestCase):
@@ -128,6 +129,33 @@ class MergeTests(unittest.TestCase):
         self.gh.runs.return_value = [{"head_sha": self.base, "head_branch": "main", "event": "workflow_dispatch"}]
         ensure_main_ci(self.gh)
         self.gh.dispatch.assert_not_called()
+
+    def test_workflow_refresh_restriction_waits_for_dependabot_without_merging(self):
+        self.gh.contains.return_value = False
+        self.gh.refresh.side_effect = APIError("PUT", "pulls/25/update-branch", 403)
+        process(self.gh, 25)
+        self.gh.merge.assert_not_called()
+        self.gh.dispatch.assert_not_called()
+
+    def test_transient_metadata_failure_is_retried(self):
+        responses = [
+            SimpleNamespace(returncode=1, stderr="HTTP 502", stdout=""),
+            SimpleNamespace(returncode=0, stderr="", stdout='{"default_branch":"main"}'),
+        ]
+        with patch("merge_dependabot.subprocess.run", side_effect=responses) as command, patch("merge_dependabot.time.sleep"):
+            self.assertEqual(GitHub("owner/repo").default, "main")
+            self.assertEqual(command.call_count, 2)
+
+    def test_mutating_api_failure_is_not_blindly_retried(self):
+        responses = [
+            SimpleNamespace(returncode=0, stderr="", stdout='{"default_branch":"main"}'),
+            SimpleNamespace(returncode=1, stderr="HTTP 502", stdout=""),
+        ]
+        with patch("merge_dependabot.subprocess.run", side_effect=responses) as command:
+            gh = GitHub("owner/repo")
+            with self.assertRaises(APIError):
+                gh.dispatch("main")
+            self.assertEqual(command.call_count, 2)
 
 
 if __name__ == "__main__":
