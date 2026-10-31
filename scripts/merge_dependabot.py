@@ -199,6 +199,10 @@ def ensure_main_ci(gh):
 
 def main():
     gh = GitHub(os.environ["GH_REPO"])
+    # Check old publication state before a merge starts a new CI run: GitHub may
+    # take a moment to list a freshly dispatched run, so checking afterward
+    # would dispatch the same published-head validation twice.
+    ensure_main_ci(gh)
     for item in gh.open_prs():
         if eligible(item, gh.repo, gh.default):
             try:
@@ -207,7 +211,6 @@ def main():
                 if error.status not in {409, 422}:
                     raise
                 report(f"PR #{item['number']}: branch changed or needs conflict resolution; publication is held")
-    ensure_main_ci(gh)
 
 
 if __name__ == "__main__":
