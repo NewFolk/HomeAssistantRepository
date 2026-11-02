@@ -1,4 +1,4 @@
-FROM python:3.15-slim@sha256:94d3426f1def7db4a106a232ac121bfd975393e5dfd40a619b955fae45fe7913
+FROM python:3.15-slim@sha256:8c13a3f37a6a5b71498228e902c4b9f51c1f7900d49fabf71f9a650c6120e0d0
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -12,7 +12,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir --upgrade pip \
-    && pip install --no-cache-dir workspace-mcp==2.3.0 fastmcp==4.1.4 mcp==2.3.0
+    && pip install --no-cache-dir workspace-mcp==2.3.0 fastmcp==4.1.5 mcp==2.3.0
 
 COPY run.sh /run.sh
 COPY patches/sitecustomize.py /opt/google_workspace_mcp_patch/sitecustomize.py
