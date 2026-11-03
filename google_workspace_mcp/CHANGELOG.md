@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.13
+
+- Update fastmcp from `4.1.5` to `4.1.6`.
+
 ## 0.2.12
 
 - Update fastmcp from `4.1.4` to `4.1.5`.
