@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.14
+
+- Refresh the pinned Python 3.15 base image digest.
+
 ## 0.2.13
 
 - Update fastmcp from `4.1.5` to `4.1.6`.
