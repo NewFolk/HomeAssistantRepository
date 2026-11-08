@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.15
+
+- Refresh the pinned Python 3.15 base image digest.
+
 ## 0.2.14
 
 - Refresh the pinned Python 3.15 base image digest.
