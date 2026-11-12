@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.19
+
+- Update workspace-mcp from `2.4.1` to `2.4.2`.
+
 ## 0.2.18
 
 - Update workspace-mcp from `2.4.0` to `2.4.1`.
