@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.22
+
+- Update fastmcp from `4.2.0` to `4.2.1`.
+
 ## 0.2.21
 
 - Update workspace-mcp from `2.4.2` to `2.5.0`.
