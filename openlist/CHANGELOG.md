@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.5
+
+- Update OpenList from `v4.2.9` to `v4.2.10` with a pinned image digest.
+
 ## 1.4.4
 
 - Update OpenList from `v4.2.7` to `v4.2.9` with a pinned image digest.
