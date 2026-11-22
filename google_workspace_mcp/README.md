@@ -12,7 +12,7 @@ Home Assistant add-on that runs [`workspace-mcp`](https://github.com/taylorwilsd
 Current add-on release: `0.2.25`.
 Runtime: Python `3.15`, workspace-mcp `2.6.0`, FastMCP `4.2.4`, MCP `2.3.0`.
 CI builds both supported architectures and checks startup, OAuth discovery/client
-registration, scope filtering, real token rotation/retry handling with a mocked
+registration, scope filtering, one-time token rotation and upstream retry with a mocked
 Google transport, and registration persistence after container recreation and
 upgrading from the published image. These checks use synthetic credentials and
 do not replace a real Google sign-in, tool call, or Home Assistant integration test.
@@ -205,12 +205,9 @@ If you still get re-auth prompts after restarts, check add-on logs for storage w
 
 ### `invalid_grant` on refresh / tokens disappear after ~1 hour
 
-If after ~1 hour a tool call triggers OAuth again and `~/.mcporter/credentials.json` loses its `tokens` block:
-
-- Use add-on version `0.2.6+` (adds a 120s grace window for refresh-token rotation to survive duplicate/retied refresh requests)
-- If you were previously hitting `invalid_scope ... mcp:tools` during refresh, `0.2.5+` already fixes that part.
-- Restart the add-on
-- Re-run `mcporter auth` once if needed
+FastMCP accepts each refresh token once. Use `mcporter` 0.13.6 or newer to
+serialize refreshes across processes, including refreshes after an HTTP 401.
+If the client has already lost the current tokens, run `mcporter auth` again.
 
 ### `redirect_uri_mismatch`
 

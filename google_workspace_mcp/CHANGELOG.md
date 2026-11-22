@@ -3,6 +3,7 @@
 ## 0.2.25
 
 - Update fastmcp from `4.2.3` to `4.2.4`.
+- Use FastMCP's one-time OAuth refresh-token rotation and keep filtering MCP-only scopes from Google requests.
 
 ## 0.2.24
 

@@ -142,6 +142,17 @@ deployment's migration history.
 - Loaded via `PYTHONPATH=/opt/google_workspace_mcp_patch` in Docker image.
 - Applied at interpreter startup.
 
+### FastMCP one-time refresh tokens (0.2.25)
+
+FastMCP 4.2.4 requires the refresh-token store to confirm that a token was
+consumed. The old grace patch kept that record and caused even the first
+refresh to fail. FastMCP now handles rotation directly, including retries
+after an upstream connection failure and rejection of consumed tokens.
+The scope patch still filters client-only scopes from Google requests.
+
+`tests/oauth_runtime.py` verifies these contracts with a mocked Google
+transport. Use `mcporter` 0.13.6 or newer for client-side refresh serialization.
+
 ## Operational config
 
 - Add-on option: `client_compat_scopes` (default `mcp:tools`)
