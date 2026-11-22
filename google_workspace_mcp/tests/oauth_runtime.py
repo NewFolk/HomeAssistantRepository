@@ -3,17 +3,16 @@
 import asyncio
 from contextlib import asynccontextmanager
 import hashlib
+import logging
 import time
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 from fastmcp.server.auth.oauth_proxy.models import JTIMapping, RefreshTokenMetadata, UpstreamTokenSet
 from fastmcp.server.auth.providers.google import GoogleProvider
+from httpx import ConnectError
 from key_value.aio.stores.memory import MemoryStore
-from mcp.server.auth.provider import RefreshToken
 from mcp.shared.auth import OAuthClientInformationFull
-
-import sitecustomize
 
 
 async def check_rotation():
@@ -33,7 +32,6 @@ async def check_rotation():
     token = provider.jwt_issuer.issue_refresh_token(
         client_id=client.client_id, scopes=scopes, jti=jti, expires_in=3600,
     )
-    refresh = RefreshToken(token=token, client_id=client.client_id, scopes=scopes, expires_at=int(now) + 3600)
     await provider._jti_mapping_store.put(
         key=jti, value=JTIMapping(jti=jti, upstream_token_id="ci-upstream", created_at=now), ttl=3600,
     )
@@ -62,35 +60,35 @@ async def check_rotation():
 
     provider._upstream_oauth_client = oauth_client
     provider._extract_upstream_claims = AsyncMock(return_value={})
-    first = await provider.exchange_refresh_token(client, refresh, scopes)
-    repeated = await provider.exchange_refresh_token(client, refresh, scopes)
-    assert first.refresh_token != token, "Refresh token did not rotate"
-    assert first.access_token == repeated.access_token, "Retry issued a different access token"
-    assert first.refresh_token == repeated.refresh_token, "Retry issued a different refresh token"
-    assert upstream.await_count == 1, "Retry called the upstream token endpoint again"
-    assert upstream.await_args.kwargs["scope"] == "openid", "Client-only scope reached the upstream"
-    provider.jwt_issuer.verify_token(first.access_token)
-    provider.jwt_issuer.verify_token(first.refresh_token, expected_token_use="refresh")
-    previous = await provider._refresh_token_store.get(key=token_hash)
-    assert previous is not None, "Previous refresh metadata was removed immediately"
-    assert previous.expires_at <= time.time() + sitecustomize.MCP_REFRESH_ROTATION_GRACE_SECONDS
-    # Removing the expired grace entry must stop returning the cached rotation.
-    # The old mapping is deleted as well to model its matching storage TTL.
-    await provider._mcp_refresh_rotation_grace_store.delete(key=jti)
-    await provider._jti_mapping_store.delete(key=jti)
+    refresh = await provider.load_refresh_token(client, token)
+    assert refresh is not None
+
+    upstream.side_effect = ConnectError("Synthetic upstream outage")
     try:
         await provider.exchange_refresh_token(client, refresh, scopes)
-    except Exception as error:
-        assert getattr(error, "error", None) == "invalid_grant", "Expired refresh failed unexpectedly"
+    except ConnectError:
+        pass
     else:
-        raise AssertionError("Expired refresh remained usable after grace storage expired")
-    assert upstream.await_count == 1, "Expired refresh called the upstream endpoint"
+        raise AssertionError("Expected the upstream connection error")
+
+    refresh = await provider.load_refresh_token(client, token)
+    assert refresh is not None, "A transient upstream failure consumed the refresh token"
+    upstream.side_effect = None
+    rotated = await provider.exchange_refresh_token(client, refresh, scopes)
+    assert rotated.refresh_token != token, "Refresh token did not rotate"
+    assert await provider.load_refresh_token(client, token) is None, "Consumed refresh token was accepted"
+    assert await provider.load_refresh_token(client, rotated.refresh_token) is not None
+    assert upstream.await_count == 2, "Expected one failed attempt and one successful refresh"
+    assert upstream.await_args.kwargs["scope"] == "openid", "Client-only scope reached the upstream"
+    provider.jwt_issuer.verify_token(rotated.access_token)
+    provider.jwt_issuer.verify_token(rotated.refresh_token, expected_token_use="refresh")
 
 
 if __name__ == "__main__":
+    logging.disable(logging.CRITICAL)
     try:
         asyncio.run(check_rotation())
     except Exception as error:
         # Never include issued token values or model-validation input in CI output.
         raise RuntimeError(f"OAuth rotation contract failed ({type(error).__name__})") from None
-    print("PASS: real token rotation, scope filtering, retry grace, and expiry rejection")
+    print("PASS: one-time token rotation, upstream retry, and scope filtering")

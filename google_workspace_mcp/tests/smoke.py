@@ -70,7 +70,6 @@ from mcp.server.auth.handlers.register import RegistrationHandler
 assert sys.version.startswith(sys.argv[1] + ".")
 assert OAuthProxy._MCP_SCOPE_PLANE_PATCHED
 assert RegistrationHandler._MCP_SCOPE_PLANE_PATCHED
-assert OAuthProxy.exchange_refresh_token.__name__ == "patched_exchange_refresh_token"
 provider = GoogleProvider(client_id="test-client", client_secret="test-secret",
                           base_url="http://127.0.0.1:8000", required_scopes=["openid"])
 scopes = ["mcp:tools", "openid", "https://www.googleapis.com/auth/drive.readonly"]
@@ -79,9 +78,12 @@ assert set(parse_qs(urlparse(url).query)["scope"][0].split()) == set(scopes[1:])
 assert set(provider._prepare_scopes_for_upstream_refresh(scopes)) == set(scopes[1:])
 '''
         docker("run", "--rm", "--entrypoint", "python", image, "-c", hooks, python_version)
-        docker(
-            "run", "--rm", "--volume", f"{root / 'tests/oauth_runtime.py'}:/oauth-runtime.py:ro",
-            "--entrypoint", "python", image, "/oauth-runtime.py",
+        subprocess.run(
+            [
+                "docker", "run", "--rm", "--volume", f"{root / 'tests/oauth_runtime.py'}:/oauth-runtime.py:ro",
+                "--entrypoint", "python", image, "/oauth-runtime.py",
+            ],
+            check=True,
         )
         client = None
         baseline_version = docker(
