@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.27
+
+- Update workspace-mcp from `2.6.0` to `2.7.0`.
+- Refresh the pinned Python 3.15 base image digest.
+
 ## 0.2.26
 
 - Update fastmcp from `4.2.4` to `4.2.5`.
