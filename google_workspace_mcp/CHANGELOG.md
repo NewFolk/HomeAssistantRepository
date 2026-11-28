@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.30
+
+- Refresh the pinned Python 3.15 base image digest.
+
 ## 0.2.29
 
 - Update workspace-mcp from `2.7.0` to `2.7.1`.
